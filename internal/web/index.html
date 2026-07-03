@@ -106,6 +106,8 @@
   </dialog>
   <script>
     const api = "/v0/management/plugins/cpa-access-manager";
+    const baseStorageKey = "cpa-access-manager.base-url";
+    const secretStorageKey = "cpa-access-manager.management-key";
     const $ = (id) => document.getElementById(id);
     const state = { keys: [], groups: [], inventory: [], prices: [], usage: [] };
     function base() { return $("base").value.trim() || location.origin; }
@@ -114,7 +116,21 @@
       return String(value ?? "").replace(/[&<>"']/g, ch => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[ch]));
     }
     function field(form, name) { return form.elements.namedItem(name); }
+    function initSettings() {
+      $("base").value = localStorage.getItem(baseStorageKey) || location.origin;
+      $("secret").value = localStorage.getItem(secretStorageKey) || "";
+      $("base").addEventListener("change", rememberSettings);
+      $("secret").addEventListener("change", rememberSettings);
+    }
+    function rememberSettings() {
+      const baseValue = base();
+      if (baseValue) localStorage.setItem(baseStorageKey, baseValue);
+      const secretValue = secret();
+      if (secretValue) localStorage.setItem(secretStorageKey, secretValue);
+      else localStorage.removeItem(secretStorageKey);
+    }
     async function call(path, opts = {}) {
+      rememberSettings();
       const headers = Object.assign({"content-type":"application/json"}, opts.headers || {});
       if (secret()) headers.authorization = "Bearer " + secret();
       const res = await fetch(base() + api + path, Object.assign({}, opts, { headers }));
@@ -131,6 +147,10 @@
     async function load() {
       try {
         msg("");
+        if (!secret()) {
+          msg("请输入 Management Key 后点击刷新。", true);
+          return;
+        }
         const [keys, groups, inventory, prices, usage] = await Promise.all([
           call("/keys"), call("/groups"), call("/inventory"), call("/prices"), call("/usage?limit=50")
         ]);
@@ -247,7 +267,8 @@
       if (!confirm("删除这个分组？")) return;
       try { await call("/groups?id=" + encodeURIComponent(id), { method:"DELETE" }); await load(); } catch(e) { msg(e.message, true); }
     }
-    load();
+    initSettings();
+    if (secret()) load();
   </script>
 </body>
 </html>

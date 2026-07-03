@@ -60,8 +60,11 @@ func (a *App) handleManagement(raw []byte) ([]byte, error) {
 	if isIndexResource(req.Path) {
 		return OKEnvelope(ManagementResponse{
 			StatusCode: http.StatusOK,
-			Headers:    http.Header{"content-type": []string{"text/html; charset=utf-8"}},
-			Body:       []byte(web.IndexHTML),
+			Headers: http.Header{
+				"content-type":  []string{"text/html; charset=utf-8"},
+				"cache-control": []string{"no-store"},
+			},
+			Body: []byte(web.IndexHTML),
 		})
 	}
 	cfg, store := a.loaded()

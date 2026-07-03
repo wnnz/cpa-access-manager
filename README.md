@@ -118,6 +118,8 @@ UI 入口：
 /v0/resource/plugins/cpa-access-manager/index.html
 ```
 
+UI 会自动使用当前 CPA 域名作为 Base URL。首次输入的 Management Key 只保存在当前浏览器的 `localStorage` 中，后续打开页面会自动填回；插件不会也不应该从 CPA 服务器端读取管理密钥。
+
 管理 API 使用 CPA 原来的 management key：
 
 ```text
