@@ -13,7 +13,7 @@
 - **模型路由**：`model.route` 会尽量把请求路由到 Key 被授权的 provider。
 - **USD 额度**：支持滚动 5 小时额度、滚动 7 天额度和总额度。
 - **真实用量记账**：请求完成后从 CPA `usage.handle` 接收真实 token 用量，按价格规则计算 USD 并写入 SQLite 账本。
-- **管理 UI**：内嵌 Web UI，可管理 Key、分组、库存、价格和用量。
+- **管理 UI**：内嵌 Web UI，可管理 Key、分组、价格和用量。
 
 ## 工作方式
 
@@ -120,11 +120,11 @@ UI 入口：
 
 UI 参考 `cpa-key-policy` 的方式复用 CPA 管理后台登录：
 
-- 当插件页由 CPA 管理后台同源 iframe 嵌入打开时，会读取管理后台保存的 `cli-proxy-auth`，自动拿到 `apiBase` 和 `managementKey`。
+- 当插件页由 CPA 管理后台同源 iframe 嵌入打开时，会读取管理后台保存的 `cli-proxy-auth`，自动获得连接信息和管理会话。
 - 该读取只在 iframe 嵌入场景启用；直接打开插件资源页时不会扫描 CPA 管理后台的登录缓存。
 - 插件兼容 CPA 管理后台新版 `enc::v1::` 本地混淆格式，也兼容未混淆的 `cli-proxy-auth`。
-- 如果管理后台只是临时登录、没有勾选记住密码，`cli-proxy-auth` 里不会包含 `managementKey`，此时需要手动填写 Management Key。
-- 手动填写的 Management Key 只保存在当前页面内存里，刷新或关闭页面后会丢失；插件不会把管理密钥写入自己的 `localStorage`。
+- 如果管理后台只是临时登录、没有勾选记住密码，`cli-proxy-auth` 里不会包含管理会话，插件页会提示从 CPA 管理后台重新打开。
+- UI 不展示 CPA Base URL 或 Management Key，也不提供手动填写入口；插件不会把管理密钥写入自己的 `localStorage`。
 - 加载数据前会先请求一次 `/status` 验证管理密钥，验证失败时不会并发请求多个管理接口，避免更容易触发 CPA 的 IP 封禁。
 
 管理 API 使用 CPA 原来的 management key：
@@ -133,7 +133,6 @@ UI 参考 `cpa-key-policy` 的方式复用 CPA 管理后台登录：
 GET/POST/PATCH/DELETE /v0/management/plugins/cpa-access-manager/keys
 POST                  /v0/management/plugins/cpa-access-manager/keys/rotate
 GET/POST/PATCH/DELETE /v0/management/plugins/cpa-access-manager/groups
-GET/POST              /v0/management/plugins/cpa-access-manager/inventory
 GET/PUT               /v0/management/plugins/cpa-access-manager/prices
 GET                   /v0/management/plugins/cpa-access-manager/usage
 ```
@@ -156,24 +155,6 @@ GET                   /v0/management/plugins/cpa-access-manager/usage
 - 对启用 USD 额度的 Key，模型缺少价格规则时默认拒绝，避免绕过额度。
 
 ## 管理 API 示例
-
-刷新库存：
-
-```bash
-curl -X POST "$CPA/v0/management/plugins/cpa-access-manager/inventory" \
-  -H "Authorization: Bearer $CPA_MANAGEMENT_KEY" \
-  -H "content-type: application/json" \
-  -d '{"refresh":true}'
-```
-
-手工写入一个 provider instance：
-
-```bash
-curl -X POST "$CPA/v0/management/plugins/cpa-access-manager/inventory" \
-  -H "Authorization: Bearer $CPA_MANAGEMENT_KEY" \
-  -H "content-type: application/json" \
-  -d '{"items":[{"id":"codex:auth-a","type":"provider_instance","provider":"codex","auth_id":"auth-a","name":"Codex account A"}]}'
-```
 
 创建分组：
 
