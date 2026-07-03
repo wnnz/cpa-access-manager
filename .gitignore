@@ -1,0 +1,11 @@
+*.so
+*.dll
+*.dylib
+*.exe
+dist/
+build/
+coverage.out
+*.db
+*.db-shm
+*.db-wal
+

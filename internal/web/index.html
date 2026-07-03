@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>CPA Access Manager</title>
+  <style>
+    :root { color-scheme: light dark; font-family: Inter, "Segoe UI", sans-serif; }
+    body { margin: 0; background: #f7f8fb; color: #18202f; }
+    .app { max-width: 1180px; margin: 0 auto; padding: 24px; }
+    header { display: flex; justify-content: space-between; gap: 16px; align-items: center; margin-bottom: 18px; }
+    h1 { font-size: 22px; margin: 0; }
+    h2 { font-size: 16px; margin: 0 0 12px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+    .panel, dialog { background: #fff; border: 1px solid #d8dde8; border-radius: 8px; box-shadow: 0 6px 18px rgba(33, 46, 77, .06); }
+    .panel { padding: 16px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; border-bottom: 1px solid #e6e9f0; padding: 8px; vertical-align: top; }
+    th { color: #5d697d; font-weight: 600; }
+    input, select, textarea, button { font: inherit; }
+    input, select, textarea { width: 100%; box-sizing: border-box; border: 1px solid #cbd2df; border-radius: 6px; padding: 8px; background: #fff; color: inherit; }
+    textarea { min-height: 76px; resize: vertical; }
+    button { border: 1px solid #c4cad6; background: #fff; border-radius: 6px; padding: 8px 10px; cursor: pointer; }
+    button.primary { background: #1264d8; color: white; border-color: #1264d8; }
+    button.danger { color: #b42318; border-color: #f3b8b1; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .muted { color: #6b7586; }
+    .mono { font-family: "Cascadia Mono", Consolas, monospace; }
+    .notice { white-space: pre-wrap; background: #eef6ff; border: 1px solid #bfdcff; padding: 10px; border-radius: 6px; margin: 10px 0; }
+    .error { background: #fff1f0; border-color: #ffccc7; color: #a8071a; }
+    dialog { width: min(780px, calc(100vw - 32px)); padding: 0; }
+    dialog form { padding: 16px; }
+    dialog::backdrop { background: rgba(10, 18, 35, .36); }
+    @media (max-width: 720px) { .row { grid-template-columns: 1fr; } .app { padding: 14px; } }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div>
+        <h1>CPA Access Manager</h1>
+        <div class="muted">Key、绑定、额度、库存和价格</div>
+      </div>
+      <div class="actions">
+        <input id="base" placeholder="CPA Base URL" value="">
+        <input id="secret" placeholder="Management Key" type="password">
+        <button class="primary" id="reload">刷新</button>
+      </div>
+    </header>
+    <div id="msg"></div>
+    <section class="grid">
+      <div class="panel">
+        <div class="actions" style="justify-content:space-between;margin-bottom:10px">
+          <h2>Keys</h2>
+          <button class="primary" id="newKey">新建 Key</button>
+        </div>
+        <div id="keys"></div>
+      </div>
+      <div class="panel">
+        <div class="actions" style="justify-content:space-between;margin-bottom:10px">
+          <h2>Inventory</h2>
+          <button id="refreshInventory">刷新库存</button>
+        </div>
+        <div id="inventory"></div>
+      </div>
+      <div class="panel">
+        <div class="actions" style="justify-content:space-between;margin-bottom:10px">
+          <h2>Groups</h2>
+          <button id="newGroup">新建分组</button>
+        </div>
+        <div id="groups"></div>
+      </div>
+      <div class="panel">
+        <div class="actions" style="justify-content:space-between;margin-bottom:10px">
+          <h2>Prices</h2>
+          <button id="savePrices">保存价格</button>
+        </div>
+        <textarea id="pricesText" spellcheck="false" class="mono" placeholder='[{"provider":"codex","model":"gpt-5","input_usd_per_million":1.25,"output_usd_per_million":10,"cache_read_usd_per_million":0.125}]'></textarea>
+      </div>
+      <div class="panel" style="grid-column:1/-1">
+        <h2>Usage</h2>
+        <div id="usage"></div>
+      </div>
+    </section>
+  </main>
+    <dialog id="keyDialog">
+    <form method="dialog">
+      <h2>Key</h2>
+      <input name="id" type="hidden">
+      <div class="row"><input name="name" placeholder="名称"><select name="enabled"><option value="true">启用</option><option value="false">禁用</option></select></div>
+      <div class="row"><input name="five" type="number" step="0.0001" placeholder="5 小时 USD 额度"><input name="weekly" type="number" step="0.0001" placeholder="7 天 USD 额度"></div>
+      <div class="row"><input name="total" type="number" step="0.0001" placeholder="总 USD 额度"><input name="bindings" placeholder='绑定 JSON，例如 [{"target_type":"auth_id","target_id":"..."}]'></div>
+      <div class="actions"><button class="primary" id="saveKey">保存</button><button>取消</button></div>
+    </form>
+  </dialog>
+  <dialog id="groupDialog">
+    <form method="dialog">
+      <h2>分组</h2>
+      <input name="original_id" type="hidden">
+      <div class="row"><input name="id" placeholder="分组 ID"><input name="name" placeholder="名称"></div>
+      <textarea name="description" placeholder="描述"></textarea>
+      <textarea name="members" class="mono" placeholder='成员 JSON，例如 [{"member_type":"provider_instance","member_id":"codex:auth-a"}]'></textarea>
+      <div class="actions"><button class="primary" id="saveGroup">保存</button><button>取消</button></div>
+    </form>
+  </dialog>
+  <script>
+    const api = "/v0/management/plugins/cpa-access-manager";
+    const $ = (id) => document.getElementById(id);
+    const state = { keys: [], groups: [], inventory: [], prices: [], usage: [] };
+    function base() { return $("base").value.trim() || location.origin; }
+    function secret() { return $("secret").value.trim(); }
+    function esc(value) {
+      return String(value ?? "").replace(/[&<>"']/g, ch => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[ch]));
+    }
+    function field(form, name) { return form.elements.namedItem(name); }
+    async function call(path, opts = {}) {
+      const headers = Object.assign({"content-type":"application/json"}, opts.headers || {});
+      if (secret()) headers.authorization = "Bearer " + secret();
+      const res = await fetch(base() + api + path, Object.assign({}, opts, { headers }));
+      const text = await res.text();
+      let data; try { data = JSON.parse(text); } catch { data = text; }
+      if (!res.ok) throw new Error((data && data.error) || text || res.status);
+      return data;
+    }
+    function msg(text, err=false) { $("msg").innerHTML = text ? `<div class="notice ${err?'error':''}">${text}</div>` : ""; }
+    function table(rows, cols) {
+      if (!rows.length) return '<div class="muted">暂无数据</div>';
+      return `<table><thead><tr>${cols.map(c=>`<th>${c[0]}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td>${c[1](r) ?? ""}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+    }
+    async function load() {
+      try {
+        msg("");
+        const [keys, groups, inventory, prices, usage] = await Promise.all([
+          call("/keys"), call("/groups"), call("/inventory"), call("/prices"), call("/usage?limit=50")
+        ]);
+        Object.assign(state, { keys, groups, inventory, prices, usage });
+        render();
+      } catch (e) { msg(e.message, true); }
+    }
+    function render() {
+      $("keys").innerHTML = table(state.keys, [
+        ["ID", r=>`<span class="mono">${esc(r.id)}</span><br><span class="muted">${esc(r.name||"")}</span>`],
+        ["状态", r=>r.enabled ? "启用" : "禁用"],
+        ["额度", r=>`5h ${r.usage?.five_hour_usd?.toFixed?.(4)||0} / ${r.limits?.five_hour_limit_usd||"-"}<br>7d ${r.usage?.weekly_usd?.toFixed?.(4)||0} / ${r.limits?.weekly_limit_usd||"-"}<br>总 ${r.usage?.total_usd?.toFixed?.(4)||0} / ${r.limits?.total_limit_usd||"-"}`],
+        ["绑定", r=>(r.bindings||[]).map(b=>`${esc(b.target_type)}:${esc(b.target_id)}`).join("<br>")],
+        ["操作", r=>`<div class="actions"><button data-key-edit="${esc(r.id)}">编辑</button><button data-key-rotate="${esc(r.id)}">轮换</button><button class="danger" data-key-delete="${esc(r.id)}">删除</button></div>`]
+      ]);
+      $("inventory").innerHTML = table(state.inventory, [
+        ["类型", r=>esc(r.type)], ["Provider", r=>esc(r.provider)], ["ID", r=>`<span class="mono">${esc(r.id)}</span>`], ["账号", r=>esc(r.email||r.name||r.label||"")]
+      ]);
+      $("groups").innerHTML = table(state.groups, [
+        ["ID", r=>`<span class="mono">${esc(r.id)}</span><br>${esc(r.name)}`],
+        ["成员", r=>(r.members||[]).map(m=>`${esc(m.member_type)}:${esc(m.member_id)}`).join("<br>")],
+        ["操作", r=>`<div class="actions"><button data-group-edit="${esc(r.id)}">编辑</button><button class="danger" data-group-delete="${esc(r.id)}">删除</button></div>`]
+      ]);
+      $("pricesText").value = JSON.stringify(state.prices, null, 2);
+      $("usage").innerHTML = table(state.usage, [
+        ["时间", r=>esc(new Date(r.created_at).toLocaleString())], ["Key", r=>`<span class="mono">${esc(r.key_id)}</span>`], ["Provider", r=>esc(r.provider)], ["Model", r=>esc(r.model)], ["USD", r=>Number(r.usd||0).toFixed(6)]
+      ]);
+      bindTableActions();
+    }
+    $("reload").onclick = load;
+    $("refreshInventory").onclick = async () => { try { await call("/inventory", { method:"POST", body: JSON.stringify({refresh:true}) }); await load(); } catch(e) { msg(e.message, true); } };
+    $("savePrices").onclick = async () => { try { await call("/prices", { method:"PUT", body: $("pricesText").value }); await load(); } catch(e) { msg(e.message, true); } };
+    $("newKey").onclick = () => openKeyDialog();
+    $("newGroup").onclick = () => openGroupDialog();
+    function openKeyDialog(key) {
+      const f = $("keyDialog").querySelector("form");
+      f.reset();
+      field(f, "id").value = key?.id || "";
+      field(f, "name").value = key?.name || "";
+      field(f, "enabled").value = key?.enabled === false ? "false" : "true";
+      field(f, "five").value = key?.limits?.five_hour_limit_usd || "";
+      field(f, "weekly").value = key?.limits?.weekly_limit_usd || "";
+      field(f, "total").value = key?.limits?.total_limit_usd || "";
+      field(f, "bindings").value = JSON.stringify(key?.bindings || [], null, 2);
+      $("keyDialog").showModal();
+    }
+    function openGroupDialog(group) {
+      const f = $("groupDialog").querySelector("form");
+      f.reset();
+      field(f, "original_id").value = group?.id || "";
+      field(f, "id").value = group?.id || "";
+      field(f, "name").value = group?.name || "";
+      field(f, "description").value = group?.description || "";
+      field(f, "members").value = JSON.stringify(group?.members || [], null, 2);
+      $("groupDialog").showModal();
+    }
+    function bindTableActions() {
+      document.querySelectorAll("[data-key-edit]").forEach(btn => btn.onclick = () => openKeyDialog(state.keys.find(k => k.id === btn.dataset.keyEdit)));
+      document.querySelectorAll("[data-key-rotate]").forEach(btn => btn.onclick = () => rotateKey(btn.dataset.keyRotate));
+      document.querySelectorAll("[data-key-delete]").forEach(btn => btn.onclick = () => deleteKey(btn.dataset.keyDelete));
+      document.querySelectorAll("[data-group-edit]").forEach(btn => btn.onclick = () => openGroupDialog(state.groups.find(g => g.id === btn.dataset.groupEdit)));
+      document.querySelectorAll("[data-group-delete]").forEach(btn => btn.onclick = () => deleteGroup(btn.dataset.groupDelete));
+    }
+    $("saveKey").onclick = async (ev) => {
+      ev.preventDefault();
+      const f = $("keyDialog").querySelector("form");
+      const bindingsRaw = field(f, "bindings").value.trim();
+      const payload = {
+        name: field(f, "name").value,
+        enabled: field(f, "enabled").value === "true",
+        five_hour_limit_usd: field(f, "five").value ? Number(field(f, "five").value) : null,
+        weekly_limit_usd: field(f, "weekly").value ? Number(field(f, "weekly").value) : null,
+        total_limit_usd: field(f, "total").value ? Number(field(f, "total").value) : null,
+        bindings: bindingsRaw ? JSON.parse(bindingsRaw) : []
+      };
+      try {
+        const id = field(f, "id").value.trim();
+        const out = id
+          ? await call("/keys?id=" + encodeURIComponent(id), { method:"PATCH", body: JSON.stringify(payload) })
+          : await call("/keys", { method:"POST", body: JSON.stringify(payload) });
+        $("keyDialog").close();
+        if (out.plain_key) msg("新 Key 只显示一次：\n" + out.plain_key);
+        await load();
+      } catch(e) { msg(e.message, true); }
+    };
+    $("saveGroup").onclick = async (ev) => {
+      ev.preventDefault();
+      const f = $("groupDialog").querySelector("form");
+      const id = field(f, "original_id").value.trim();
+      const payload = {
+        id: field(f, "id").value.trim(),
+        name: field(f, "name").value.trim(),
+        description: field(f, "description").value.trim(),
+        members: field(f, "members").value.trim() ? JSON.parse(field(f, "members").value) : []
+      };
+      try {
+        await call(id ? "/groups?id=" + encodeURIComponent(id) : "/groups", { method: id ? "PATCH" : "POST", body: JSON.stringify(payload) });
+        $("groupDialog").close();
+        await load();
+      } catch(e) { msg(e.message, true); }
+    };
+    async function rotateKey(id) {
+      try {
+        const out = await call("/keys/rotate?id=" + encodeURIComponent(id), { method:"POST" });
+        msg("新 Key 只显示一次：\n" + out.plain_key);
+        await load();
+      } catch(e) { msg(e.message, true); }
+    }
+    async function deleteKey(id) {
+      if (!confirm("删除这个 Key？")) return;
+      try { await call("/keys?id=" + encodeURIComponent(id), { method:"DELETE" }); await load(); } catch(e) { msg(e.message, true); }
+    }
+    async function deleteGroup(id) {
+      if (!confirm("删除这个分组？")) return;
+      try { await call("/groups?id=" + encodeURIComponent(id), { method:"DELETE" }); await load(); } catch(e) { msg(e.message, true); }
+    }
+    load();
+  </script>
+</body>
+</html>

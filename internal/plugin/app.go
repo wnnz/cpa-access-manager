@@ -1,0 +1,387 @@
+package plugin
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"strings"
+	"sync"
+	"time"
+
+	"cpa-access-manager/internal/access"
+	"gopkg.in/yaml.v3"
+)
+
+type HostCaller func(method string, payload []byte) ([]byte, error)
+
+type App struct {
+	mu    sync.RWMutex
+	cfg   Config
+	store *access.Store
+	host  HostCaller
+}
+
+func NewApp(host HostCaller) *App {
+	return &App{host: host}
+}
+
+func (a *App) Shutdown() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.store != nil {
+		_ = a.store.Close()
+		a.store = nil
+	}
+}
+
+func (a *App) HandleMethod(method string, request []byte) ([]byte, error) {
+	switch method {
+	case MethodPluginRegister, MethodPluginReconfigure:
+		if err := a.configure(request); err != nil {
+			return nil, err
+		}
+		return OKEnvelope(a.registration())
+	case MethodFrontendAuthIdentifier:
+		return OKEnvelope(IdentifierResponse{Identifier: PluginID})
+	case MethodFrontendAuthAuthenticate:
+		return a.authenticate(request)
+	case MethodModelRoute:
+		return a.routeModel(request)
+	case MethodSchedulerPick:
+		return a.pickScheduler(request)
+	case MethodUsageHandle:
+		return a.handleUsage(request)
+	case MethodManagementRegister:
+		return OKEnvelope(a.managementRegistration())
+	case MethodManagementHandle:
+		return a.handleManagement(request)
+	default:
+		return ErrorEnvelope("unknown_method", "unknown method: "+method, http.StatusNotFound), nil
+	}
+}
+
+func (a *App) configure(raw []byte) error {
+	var req LifecycleRequest
+	if len(raw) > 0 {
+		if err := json.Unmarshal(raw, &req); err != nil {
+			return err
+		}
+	}
+	cfg := DefaultConfig()
+	if len(req.ConfigYAML) > 0 {
+		if err := yaml.Unmarshal(req.ConfigYAML, &cfg); err != nil {
+			return err
+		}
+	}
+	if strings.TrimSpace(cfg.DBPath) == "" {
+		cfg.DBPath = DefaultConfig().DBPath
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	store, err := access.OpenStore(ctx, cfg.DBPath, cfg.AllowUnpriced)
+	if err != nil {
+		return err
+	}
+	a.mu.Lock()
+	old := a.store
+	a.cfg = cfg
+	a.store = store
+	a.mu.Unlock()
+	if old != nil {
+		_ = old.Close()
+	}
+	return nil
+}
+
+func DefaultConfig() Config {
+	return Config{
+		Enabled:       true,
+		DBPath:        "/opt/cli-proxy-api/plugins/cpa-access-manager.db",
+		AllowUnpriced: false,
+	}
+}
+
+func (a *App) loaded() (Config, *access.Store) {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.cfg, a.store
+}
+
+func (a *App) registration() Registration {
+	return Registration{
+		SchemaVersion: SchemaVersion,
+		Metadata: Metadata{
+			Name:             PluginName,
+			Version:          Version,
+			Author:           "mossdeck",
+			GitHubRepository: "https://github.com/mossdeck/cpa-access-manager",
+			ConfigFields: []ConfigField{
+				{Name: "enabled", Type: "boolean", Description: "Enable or disable plugin request enforcement."},
+				{Name: "db_path", Type: "string", Description: "SQLite database path."},
+				{Name: "allow_unpriced", Type: "boolean", Description: "Allow USD-limited keys to use models without price rules. Defaults to false."},
+			},
+		},
+		Capabilities: Capabilities{
+			FrontendAuthProvider:          true,
+			FrontendAuthProviderExclusive: true,
+			ModelRouter:                   true,
+			Scheduler:                     true,
+			UsagePlugin:                   true,
+			ManagementAPI:                 true,
+		},
+	}
+}
+
+func (a *App) managementRegistration() ManagementRegistrationResponse {
+	routes := []ManagementRoute{
+		{Method: http.MethodGet, Path: routeStatus, Description: "Plugin status."},
+		{Method: http.MethodGet, Path: routeKeys, Description: "List keys."},
+		{Method: http.MethodPost, Path: routeKeys, Description: "Create key."},
+		{Method: http.MethodPatch, Path: routeKeys, Description: "Update key."},
+		{Method: http.MethodDelete, Path: routeKeys, Description: "Delete key."},
+		{Method: http.MethodPost, Path: routeRotateKey, Description: "Rotate key."},
+		{Method: http.MethodGet, Path: routeGroups, Description: "List groups."},
+		{Method: http.MethodPost, Path: routeGroups, Description: "Create group."},
+		{Method: http.MethodPatch, Path: routeGroups, Description: "Update group."},
+		{Method: http.MethodDelete, Path: routeGroups, Description: "Delete group."},
+		{Method: http.MethodGet, Path: routeInventory, Description: "List inventory."},
+		{Method: http.MethodPost, Path: routeInventory, Description: "Refresh or upsert inventory."},
+		{Method: http.MethodGet, Path: routePrices, Description: "List price rules."},
+		{Method: http.MethodPut, Path: routePrices, Description: "Upsert price rules."},
+		{Method: http.MethodGet, Path: routeUsage, Description: "List usage ledger."},
+	}
+	return ManagementRegistrationResponse{
+		Routes: routes,
+		Resources: []ResourceRoute{{
+			Path:        resourceIndex,
+			Menu:        "CPA Access",
+			Description: "Manage downstream CPA keys, bindings, quotas, inventory, and prices.",
+		}},
+	}
+}
+
+func (a *App) authenticate(raw []byte) ([]byte, error) {
+	cfg, store := a.loaded()
+	if !cfg.Enabled || store == nil {
+		return OKEnvelope(FrontendAuthResponse{Authenticated: false})
+	}
+	var req FrontendAuthRequest
+	if err := json.Unmarshal(raw, &req); err != nil {
+		return nil, err
+	}
+	token := bearerToken(req.Headers)
+	if token == "" {
+		return OKEnvelope(FrontendAuthResponse{Authenticated: false})
+	}
+	requestedModel := requestedModel(req.Body, req.Query)
+	key, err := store.Authenticate(context.Background(), token, requestedModel, time.Now())
+	if err != nil {
+		if errors.Is(err, access.ErrKeyNotFound) {
+			return OKEnvelope(FrontendAuthResponse{Authenticated: false})
+		}
+		return ErrorEnvelope("access_denied", err.Error(), http.StatusForbidden), nil
+	}
+	meta := map[string]string{
+		"provider":                   PluginID,
+		"key_id":                     key.ID,
+		"cpa_access_manager_key_id":  key.ID,
+		"cpa_access_requested_model": requestedModel,
+	}
+	return OKEnvelope(FrontendAuthResponse{
+		Authenticated: true,
+		Principal:     key.ID,
+		Metadata:      meta,
+	})
+}
+
+func (a *App) routeModel(raw []byte) ([]byte, error) {
+	cfg, store := a.loaded()
+	if !cfg.Enabled || store == nil {
+		return OKEnvelope(ModelRouteResponse{Handled: false})
+	}
+	var req ModelRouteRequest
+	if err := json.Unmarshal(raw, &req); err != nil {
+		return nil, err
+	}
+	keyID := keyIDFromMetadata(req.Metadata)
+	if keyID == "" {
+		keyID = keyIDFromHeaders(context.Background(), store, req.Headers)
+	}
+	if keyID == "" {
+		return OKEnvelope(ModelRouteResponse{Handled: false})
+	}
+	provider, err := store.ChooseProvider(context.Background(), keyID, req.RequestedModel, req.AvailableProviders)
+	if err != nil {
+		return OKEnvelope(ModelRouteResponse{Handled: false})
+	}
+	return OKEnvelope(ModelRouteResponse{
+		Handled:     true,
+		TargetKind:  "provider",
+		Target:      provider,
+		TargetModel: req.RequestedModel,
+		Reason:      PluginID + ":" + keyID,
+	})
+}
+
+func (a *App) pickScheduler(raw []byte) ([]byte, error) {
+	cfg, store := a.loaded()
+	if !cfg.Enabled || store == nil {
+		return OKEnvelope(SchedulerPickResponse{Handled: false})
+	}
+	var req SchedulerPickRequest
+	if err := json.Unmarshal(raw, &req); err != nil {
+		return nil, err
+	}
+	keyID := keyIDFromMetadata(req.Options.Metadata)
+	if keyID == "" {
+		return OKEnvelope(SchedulerPickResponse{Handled: false})
+	}
+	candidates := make([]access.Candidate, 0, len(req.Candidates))
+	for _, candidate := range req.Candidates {
+		candidates = append(candidates, access.Candidate{
+			ID:         candidate.ID,
+			Provider:   candidate.Provider,
+			Priority:   candidate.Priority,
+			Status:     candidate.Status,
+			Attributes: candidate.Attributes,
+		})
+	}
+	selected, err := store.PickCandidate(context.Background(), keyID, candidates)
+	if err != nil {
+		return ErrorEnvelope("no_allowed_auth", err.Error(), http.StatusForbidden), nil
+	}
+	return OKEnvelope(SchedulerPickResponse{Handled: true, AuthID: selected.ID})
+}
+
+func (a *App) handleUsage(raw []byte) ([]byte, error) {
+	_, store := a.loaded()
+	if store == nil {
+		return OKEnvelope(map[string]any{})
+	}
+	var req UsageHandleRequest
+	if err := json.Unmarshal(raw, &req); err != nil {
+		return nil, err
+	}
+	key, err := store.KeyByIDOrPresentedToken(context.Background(), firstNonEmpty(req.APIKey, req.Source))
+	if err != nil {
+		return OKEnvelope(map[string]any{})
+	}
+	_, err = store.RecordUsage(context.Background(), access.UsageEntry{
+		KeyID:     key.ID,
+		AuthID:    strings.TrimSpace(req.AuthID),
+		AuthIndex: strings.TrimSpace(req.AuthIndex),
+		Provider:  req.Provider,
+		Model:     firstNonEmpty(req.Model, req.Alias),
+		Alias:     req.Alias,
+		Failed:    req.Failed,
+		Detail: access.UsageDetail{
+			InputTokens:         req.Detail.InputTokens,
+			OutputTokens:        req.Detail.OutputTokens,
+			ReasoningTokens:     req.Detail.ReasoningTokens,
+			CachedTokens:        req.Detail.CachedTokens,
+			CacheReadTokens:     req.Detail.CacheReadTokens,
+			CacheCreationTokens: req.Detail.CacheCreationTokens,
+			TotalTokens:         req.Detail.TotalTokens,
+		},
+	})
+	if err != nil {
+		return ErrorEnvelope("usage_record_failed", err.Error(), http.StatusBadRequest), nil
+	}
+	return OKEnvelope(map[string]any{})
+}
+
+func OKEnvelope(v any) ([]byte, error) {
+	raw, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(Envelope{OK: true, Result: raw})
+}
+
+func ErrorEnvelope(code, message string, status int) []byte {
+	raw, _ := json.Marshal(Envelope{
+		OK: false,
+		Error: &EnvelopeError{
+			Code:       code,
+			Message:    message,
+			HTTPStatus: status,
+		},
+	})
+	return raw
+}
+
+func keyIDFromHeaders(ctx context.Context, store *access.Store, headers http.Header) string {
+	token := bearerToken(headers)
+	if token == "" || store == nil {
+		return ""
+	}
+	key, err := store.KeyByPresentedToken(ctx, token)
+	if err != nil {
+		return ""
+	}
+	return key.ID
+}
+
+func keyIDFromMetadata(meta map[string]any) string {
+	for _, key := range []string{"cpa_access_manager_key_id", "key_id", "api_key", "principal"} {
+		if value, ok := meta[key]; ok {
+			if s := strings.TrimSpace(fmt.Sprint(value)); s != "" {
+				return s
+			}
+		}
+	}
+	return ""
+}
+
+func bearerToken(headers http.Header) string {
+	if headers == nil {
+		return ""
+	}
+	for _, name := range []string{"Authorization", "authorization"} {
+		for _, value := range headers.Values(name) {
+			value = strings.TrimSpace(value)
+			if strings.HasPrefix(strings.ToLower(value), "bearer ") {
+				return strings.TrimSpace(value[7:])
+			}
+			if value != "" {
+				return value
+			}
+		}
+	}
+	for _, name := range []string{"X-API-Key", "x-api-key", "api-key"} {
+		if value := strings.TrimSpace(headers.Get(name)); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func requestedModel(body []byte, query map[string][]string) string {
+	if len(body) > 0 {
+		var payload map[string]any
+		if json.Unmarshal(body, &payload) == nil {
+			if model, ok := payload["model"].(string); ok {
+				return strings.TrimSpace(model)
+			}
+		}
+	}
+	if query != nil {
+		for _, key := range []string{"model", "requested_model"} {
+			if values := query[key]; len(values) > 0 {
+				return strings.TrimSpace(values[0])
+			}
+		}
+	}
+	return ""
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
+}

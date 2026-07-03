@@ -1,0 +1,4 @@
+enabled: true
+db_path: /opt/cli-proxy-api/plugins/cpa-access-manager.db
+allow_unpriced: false
+
