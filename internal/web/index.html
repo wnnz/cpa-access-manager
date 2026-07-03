@@ -109,14 +109,13 @@
   <script>
     const api = "/v0/management/plugins/cpa-access-manager";
     const baseStorageKey = "cpa-access-manager.base-url";
-    const secretStorageKey = "cpa-access-manager.management-key";
+    const legacySecretStorageKey = "cpa-access-manager.management-key";
     const cpaAuthStorageKey = "cli-proxy-auth";
     const cpaSecurePrefix = "enc::v1::";
     const cpaSecureSalt = "cli-proxy-api-webui::secure-storage";
     const $ = (id) => document.getElementById(id);
     const state = { keys: [], groups: [], inventory: [], prices: [], usage: [] };
     let secretSource = "";
-    let importedManagementKey = "";
     function base() { return $("base").value.trim() || location.origin; }
     function secret() { return $("secret").value.trim(); }
     function esc(value) {
@@ -161,34 +160,31 @@
         return null;
       }
     }
-    function readCPAManagementSession() {
-      const result = { apiBase: "", managementKey: "", remembered: false };
-      for (const storage of [window.localStorage, window.sessionStorage]) {
-        if (!storage) continue;
-        const persisted = readStorageValue(storage, cpaAuthStorageKey);
-        const persistedState = persisted && typeof persisted === "object"
-          ? (persisted.state && typeof persisted.state === "object" ? persisted.state : persisted)
-          : null;
-        const apiBase = asString(persistedState?.apiBase)
-          || asString(readStorageValue(storage, "apiBase"))
-          || asString(readStorageValue(storage, "apiUrl"));
-        const managementKey = asString(persistedState?.managementKey)
-          || asString(readStorageValue(storage, "managementKey"));
-        if (!result.apiBase && apiBase) result.apiBase = apiBase;
-        if (!result.managementKey && managementKey) result.managementKey = managementKey;
-        try {
-          result.remembered = result.remembered || storage.getItem("isLoggedIn") === "true" || persistedState?.rememberPassword === true;
-        } catch {}
+    function isEmbeddedInPanel() {
+      try {
+        return window.self !== window.top;
+      } catch {
+        return false;
       }
-      return result;
+    }
+    function extractPanelAuth(value) {
+      if (!value || typeof value !== "object") return null;
+      const stateValue = value.state && typeof value.state === "object" ? value.state : value;
+      const apiBase = asString(stateValue.apiBase);
+      const managementKey = asString(stateValue.managementKey);
+      return apiBase && managementKey ? { apiBase, managementKey } : null;
+    }
+    function readCPAPanelAuth() {
+      if (!isEmbeddedInPanel()) return null;
+      const persisted = readStorageValue(window.localStorage, cpaAuthStorageKey);
+      return extractPanelAuth(persisted);
     }
     function initSettings() {
-      const cpaSession = readCPAManagementSession();
-      const savedSecret = localStorage.getItem(secretStorageKey) || "";
-      $("base").value = cpaSession.apiBase || localStorage.getItem(baseStorageKey) || location.origin;
-      $("secret").value = cpaSession.managementKey || savedSecret;
-      secretSource = cpaSession.managementKey ? "cpa" : (savedSecret ? "saved" : "");
-      importedManagementKey = cpaSession.managementKey || "";
+      const panelAuth = readCPAPanelAuth();
+      localStorage.removeItem(legacySecretStorageKey);
+      $("base").value = panelAuth?.apiBase || localStorage.getItem(baseStorageKey) || location.origin;
+      $("secret").value = panelAuth?.managementKey || "";
+      secretSource = panelAuth ? "panel" : "";
       $("base").addEventListener("change", rememberSettings);
       $("secret").addEventListener("input", () => { secretSource = "manual"; updateAuthStatus(); });
       $("secret").addEventListener("change", rememberSettings);
@@ -197,17 +193,13 @@
     function rememberSettings() {
       const baseValue = base();
       if (baseValue) localStorage.setItem(baseStorageKey, baseValue);
-      const secretValue = secret();
-      if (secretSource === "cpa" && secretValue === importedManagementKey) localStorage.removeItem(secretStorageKey);
-      else if (secretValue) localStorage.setItem(secretStorageKey, secretValue);
-      else localStorage.removeItem(secretStorageKey);
+      localStorage.removeItem(legacySecretStorageKey);
       updateAuthStatus();
     }
     function updateAuthStatus() {
       if (!secret()) $("authStatus").textContent = "未找到可复用的管理登录";
-      else if (secretSource === "cpa") $("authStatus").textContent = "已复用 CPA 管理后台登录";
-      else if (secretSource === "saved") $("authStatus").textContent = "已使用插件本地保存的管理密钥";
-      else $("authStatus").textContent = "已使用当前输入的管理密钥";
+      else if (secretSource === "panel") $("authStatus").textContent = "已复用 CPA 管理后台登录";
+      else $("authStatus").textContent = "已使用当前输入的管理密钥，仅保存在本页内存";
     }
     async function call(path, opts = {}) {
       rememberSettings();
@@ -219,6 +211,9 @@
       if (!res.ok) throw new Error((data && data.error) || text || res.status);
       return data;
     }
+    async function verifyManagementSession() {
+      await call("/status");
+    }
     function msg(text, err=false) { $("msg").innerHTML = text ? `<div class="notice ${err?'error':''}">${text}</div>` : ""; }
     function table(rows, cols) {
       if (!rows.length) return '<div class="muted">暂无数据</div>';
@@ -228,9 +223,10 @@
       try {
         msg("");
         if (!secret()) {
-          msg("没有找到可复用的管理登录。请先在 CPA 管理后台勾选记住密码登录后再打开插件，或在右上角手动填写 Management Key。", true);
+          msg("没有找到可复用的管理登录。请从 CPA 管理后台的插件页面打开，且管理后台需要勾选记住密码；或在右上角手动填写 Management Key。", true);
           return;
         }
+        await verifyManagementSession();
         const [keys, groups, inventory, prices, usage] = await Promise.all([
           call("/keys"), call("/groups"), call("/inventory"), call("/prices"), call("/usage?limit=50")
         ]);

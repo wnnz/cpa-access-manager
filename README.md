@@ -118,12 +118,14 @@ UI 入口：
 /v0/resource/plugins/cpa-access-manager/index.html
 ```
 
-UI 会优先复用 CPA 管理后台在当前浏览器保存的登录信息：
+UI 参考 `cpa-key-policy` 的方式复用 CPA 管理后台登录：
 
-- 如果你从同一个域名打开过 CPA `/management.html`，并勾选了记住密码/保持登录，插件页会自动读取 CPA 管理后台的 `apiBase` 和 `managementKey` 缓存，不需要再次输入 Management Key。
-- 插件兼容 CPA 管理后台新版 `enc::v1::` 本地混淆格式，也兼容旧版明文本地缓存。
-- 如果管理后台只是临时登录、没有把密钥保存到浏览器，独立插件页无法读取管理页内存里的密钥，此时需要手动填写 Management Key。
-- 手动填写的 Management Key 只保存在当前浏览器的 `localStorage` 中；插件不会也不应该从 CPA 服务器端读取管理密钥。
+- 当插件页由 CPA 管理后台同源 iframe 嵌入打开时，会读取管理后台保存的 `cli-proxy-auth`，自动拿到 `apiBase` 和 `managementKey`。
+- 该读取只在 iframe 嵌入场景启用；直接打开插件资源页时不会扫描 CPA 管理后台的登录缓存。
+- 插件兼容 CPA 管理后台新版 `enc::v1::` 本地混淆格式，也兼容未混淆的 `cli-proxy-auth`。
+- 如果管理后台只是临时登录、没有勾选记住密码，`cli-proxy-auth` 里不会包含 `managementKey`，此时需要手动填写 Management Key。
+- 手动填写的 Management Key 只保存在当前页面内存里，刷新或关闭页面后会丢失；插件不会把管理密钥写入自己的 `localStorage`。
+- 加载数据前会先请求一次 `/status` 验证管理密钥，验证失败时不会并发请求多个管理接口，避免更容易触发 CPA 的 IP 封禁。
 
 管理 API 使用 CPA 原来的 management key：
 
