@@ -27,6 +27,7 @@
     .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
     .muted { color: #6b7586; }
     .mono { font-family: "Cascadia Mono", Consolas, monospace; }
+    .auth-status { flex-basis: 100%; font-size: 12px; text-align: right; }
     .notice { white-space: pre-wrap; background: #eef6ff; border: 1px solid #bfdcff; padding: 10px; border-radius: 6px; margin: 10px 0; }
     .error { background: #fff1f0; border-color: #ffccc7; color: #a8071a; }
     dialog { width: min(780px, calc(100vw - 32px)); padding: 0; }
@@ -46,6 +47,7 @@
         <input id="base" placeholder="CPA Base URL" value="">
         <input id="secret" placeholder="Management Key" type="password">
         <button class="primary" id="reload">刷新</button>
+        <div id="authStatus" class="auth-status muted"></div>
       </div>
     </header>
     <div id="msg"></div>
@@ -108,26 +110,104 @@
     const api = "/v0/management/plugins/cpa-access-manager";
     const baseStorageKey = "cpa-access-manager.base-url";
     const secretStorageKey = "cpa-access-manager.management-key";
+    const cpaAuthStorageKey = "cli-proxy-auth";
+    const cpaSecurePrefix = "enc::v1::";
+    const cpaSecureSalt = "cli-proxy-api-webui::secure-storage";
     const $ = (id) => document.getElementById(id);
     const state = { keys: [], groups: [], inventory: [], prices: [], usage: [] };
+    let secretSource = "";
+    let importedManagementKey = "";
     function base() { return $("base").value.trim() || location.origin; }
     function secret() { return $("secret").value.trim(); }
     function esc(value) {
       return String(value ?? "").replace(/[&<>"']/g, ch => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[ch]));
     }
     function field(form, name) { return form.elements.namedItem(name); }
+    function asString(value) {
+      return typeof value === "string" ? value.trim() : "";
+    }
+    function parseStoredJSON(value) {
+      if (typeof value !== "string") return value;
+      try { return JSON.parse(value); } catch { return value; }
+    }
+    function cpaSecureKeyBytes() {
+      return new TextEncoder().encode(`${cpaSecureSalt}|${window.location.host}|${navigator.userAgent}`);
+    }
+    function base64ToBytes(value) {
+      const text = atob(value);
+      const bytes = new Uint8Array(text.length);
+      for (let i = 0; i < text.length; i += 1) bytes[i] = text.charCodeAt(i);
+      return bytes;
+    }
+    function xorBytes(bytes, key) {
+      const out = new Uint8Array(bytes.length);
+      for (let i = 0; i < bytes.length; i += 1) out[i] = bytes[i] ^ key[i % key.length];
+      return out;
+    }
+    function decodeCPASecureValue(raw) {
+      if (!raw) return null;
+      let text = raw;
+      if (raw.startsWith(cpaSecurePrefix)) {
+        const encrypted = base64ToBytes(raw.slice(cpaSecurePrefix.length));
+        text = new TextDecoder().decode(xorBytes(encrypted, cpaSecureKeyBytes()));
+      }
+      return parseStoredJSON(text);
+    }
+    function readStorageValue(storage, key) {
+      try {
+        const raw = storage.getItem(key);
+        return raw === null ? null : decodeCPASecureValue(raw);
+      } catch {
+        return null;
+      }
+    }
+    function readCPAManagementSession() {
+      const result = { apiBase: "", managementKey: "", remembered: false };
+      for (const storage of [window.localStorage, window.sessionStorage]) {
+        if (!storage) continue;
+        const persisted = readStorageValue(storage, cpaAuthStorageKey);
+        const persistedState = persisted && typeof persisted === "object"
+          ? (persisted.state && typeof persisted.state === "object" ? persisted.state : persisted)
+          : null;
+        const apiBase = asString(persistedState?.apiBase)
+          || asString(readStorageValue(storage, "apiBase"))
+          || asString(readStorageValue(storage, "apiUrl"));
+        const managementKey = asString(persistedState?.managementKey)
+          || asString(readStorageValue(storage, "managementKey"));
+        if (!result.apiBase && apiBase) result.apiBase = apiBase;
+        if (!result.managementKey && managementKey) result.managementKey = managementKey;
+        try {
+          result.remembered = result.remembered || storage.getItem("isLoggedIn") === "true" || persistedState?.rememberPassword === true;
+        } catch {}
+      }
+      return result;
+    }
     function initSettings() {
-      $("base").value = localStorage.getItem(baseStorageKey) || location.origin;
-      $("secret").value = localStorage.getItem(secretStorageKey) || "";
+      const cpaSession = readCPAManagementSession();
+      const savedSecret = localStorage.getItem(secretStorageKey) || "";
+      $("base").value = cpaSession.apiBase || localStorage.getItem(baseStorageKey) || location.origin;
+      $("secret").value = cpaSession.managementKey || savedSecret;
+      secretSource = cpaSession.managementKey ? "cpa" : (savedSecret ? "saved" : "");
+      importedManagementKey = cpaSession.managementKey || "";
       $("base").addEventListener("change", rememberSettings);
+      $("secret").addEventListener("input", () => { secretSource = "manual"; updateAuthStatus(); });
       $("secret").addEventListener("change", rememberSettings);
+      updateAuthStatus();
     }
     function rememberSettings() {
       const baseValue = base();
       if (baseValue) localStorage.setItem(baseStorageKey, baseValue);
       const secretValue = secret();
-      if (secretValue) localStorage.setItem(secretStorageKey, secretValue);
+      if (secretSource === "cpa" && secretValue === importedManagementKey) localStorage.removeItem(secretStorageKey);
+      else if (secretValue) localStorage.setItem(secretStorageKey, secretValue);
       else localStorage.removeItem(secretStorageKey);
+      updateAuthStatus();
+    }
+    function updateAuthStatus() {
+      if (!secret()) $("authStatus").textContent = "未找到可复用的管理登录";
+      else if (secretSource === "cpa") $("authStatus").textContent = "已复用 CPA 管理后台登录";
+      else if (secretSource === "saved") $("authStatus").textContent = "已使用插件本地保存的管理密钥";
+      else $("authStatus").textContent = "已使用当前输入的管理密钥";
     }
     async function call(path, opts = {}) {
       rememberSettings();
@@ -148,7 +228,7 @@
       try {
         msg("");
         if (!secret()) {
-          msg("请输入 Management Key 后点击刷新。", true);
+          msg("没有找到可复用的管理登录。请先在 CPA 管理后台勾选记住密码登录后再打开插件，或在右上角手动填写 Management Key。", true);
           return;
         }
         const [keys, groups, inventory, prices, usage] = await Promise.all([

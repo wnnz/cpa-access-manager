@@ -118,7 +118,12 @@ UI 入口：
 /v0/resource/plugins/cpa-access-manager/index.html
 ```
 
-UI 会自动使用当前 CPA 域名作为 Base URL。首次输入的 Management Key 只保存在当前浏览器的 `localStorage` 中，后续打开页面会自动填回；插件不会也不应该从 CPA 服务器端读取管理密钥。
+UI 会优先复用 CPA 管理后台在当前浏览器保存的登录信息：
+
+- 如果你从同一个域名打开过 CPA `/management.html`，并勾选了记住密码/保持登录，插件页会自动读取 CPA 管理后台的 `apiBase` 和 `managementKey` 缓存，不需要再次输入 Management Key。
+- 插件兼容 CPA 管理后台新版 `enc::v1::` 本地混淆格式，也兼容旧版明文本地缓存。
+- 如果管理后台只是临时登录、没有把密钥保存到浏览器，独立插件页无法读取管理页内存里的密钥，此时需要手动填写 Management Key。
+- 手动填写的 Management Key 只保存在当前浏览器的 `localStorage` 中；插件不会也不应该从 CPA 服务器端读取管理密钥。
 
 管理 API 使用 CPA 原来的 management key：
 
