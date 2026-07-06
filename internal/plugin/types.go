@@ -10,8 +10,8 @@ const (
 	ABIVersion    uint32 = 1
 	SchemaVersion uint32 = 1
 
-	PluginID   = "cpa-access-manager"
-	PluginName = "cpa-access-manager"
+	PluginID   = "cpa-toolkit"
+	PluginName = "CPA Toolkit"
 	Version    = "0.1.0"
 
 	MethodPluginRegister    = "plugin.register"

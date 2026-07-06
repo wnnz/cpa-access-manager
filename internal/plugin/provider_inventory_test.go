@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"cpa-access-manager/internal/access"
+	"github.com/wnnz/cpa-toolkit/internal/access"
 )
 
 func TestHostProviderInventoryFetchesCodexAPIKey(t *testing.T) {

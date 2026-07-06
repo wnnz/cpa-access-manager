@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"cpa-access-manager/internal/access"
+	"github.com/wnnz/cpa-toolkit/internal/access"
 )
 
 func newTestApp(t *testing.T) (*App, *access.Store) {
@@ -100,8 +100,8 @@ func TestAppFrontendAuthReturnsKeyMetadata(t *testing.T) {
 	if resp.Principal != key.ID {
 		t.Fatalf("Principal = %q, want %q", resp.Principal, key.ID)
 	}
-	if resp.Metadata["cpa_access_manager_key_id"] != key.ID {
-		t.Fatalf("metadata key id = %q, want %q", resp.Metadata["cpa_access_manager_key_id"], key.ID)
+	if resp.Metadata["cpa_toolkit_key_id"] != key.ID {
+		t.Fatalf("metadata key id = %q, want %q", resp.Metadata["cpa_toolkit_key_id"], key.ID)
 	}
 	if resp.Metadata["cpa_access_requested_model"] != "gpt-test" {
 		t.Fatalf("requested model metadata = %q, want gpt-test", resp.Metadata["cpa_access_requested_model"])
@@ -162,7 +162,7 @@ func TestAppSchedulerPickSelectsAuthorizedCandidate(t *testing.T) {
 	req := SchedulerPickRequest{
 		Provider: "codex",
 		Model:    "gpt-test",
-		Options:  SchedulerPickOptions{Metadata: map[string]any{"cpa_access_manager_key_id": key.ID}},
+		Options:  SchedulerPickOptions{Metadata: map[string]any{"cpa_toolkit_key_id": key.ID}},
 		Candidates: []SchedulerAuthCandidate{
 			{ID: "auth-b", Provider: "codex", Priority: 100},
 			{ID: "auth-a", Provider: "codex", Priority: 1},
@@ -249,7 +249,7 @@ func TestAppUsageHandleRecordsByMetadataKeyID(t *testing.T) {
 	req := UsageHandleRequest{
 		Provider: "codex",
 		Model:    "unpriced-model",
-		Metadata: map[string]any{"cpa_access_manager_key_id": key.ID},
+		Metadata: map[string]any{"cpa_toolkit_key_id": key.ID},
 		AuthID:   "auth-a",
 		Detail: UsageDetailIn{
 			InputTokens:  7,
@@ -289,7 +289,7 @@ func TestAppManagementRotateRouteUsesExactNormalizedPath(t *testing.T) {
 	}
 	req := ManagementRequest{
 		Method: http.MethodPost,
-		Path:   "/v0/management/plugins/cpa-access-manager/keys/rotate",
+		Path:   "/v0/management/plugins/cpa-toolkit/keys/rotate",
 		Query:  url.Values{"id": []string{key.ID}},
 	}
 	rawReq, _ := json.Marshal(req)

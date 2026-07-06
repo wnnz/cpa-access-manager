@@ -59,7 +59,7 @@ import (
 	"fmt"
 	"unsafe"
 
-	"cpa-access-manager/internal/plugin"
+	"github.com/wnnz/cpa-toolkit/internal/plugin"
 )
 
 var app = plugin.NewApp(callHost)

@@ -1237,9 +1237,10 @@
   <div class="toast" id="toast" data-od-id="feedback-toast" role="status" aria-live="polite" aria-atomic="true">已复制</div>
 
   <script>
-    const api = "/v0/management/plugins/cpa-access-manager";
-    const legacySecretStorageKey = "cpa-access-manager.management-key";
-    const sessionSecretStorageKey = "cpa-access-manager.management-key.session";
+    const api = "/v0/management/plugins/cpa-toolkit";
+    const legacySecretStorageKeys = ["cpa-toolkit.management-key", "cpa-access-manager.management-key"];
+    const sessionSecretStorageKey = "cpa-toolkit.management-key.session";
+    const legacySessionSecretStorageKey = "cpa-access-manager.management-key.session";
     const cpaAuthStorageKey = "cli-proxy-auth";
     const cpaSecurePrefix = "enc::v1::";
     const cpaSecureSalt = "cli-proxy-api-webui::secure-storage";
@@ -1346,12 +1347,20 @@
       return extractPanelAuth(readStorageValue(window.localStorage, cpaAuthStorageKey));
     }
     function cleanupLegacySecret() {
-      try { localStorage.removeItem(legacySecretStorageKey); } catch {}
+      for (const key of legacySecretStorageKeys) {
+        try { localStorage.removeItem(key); } catch {}
+      }
     }
     function initSession() {
       const panelAuth = readCPAPanelAuth();
-      const sessionSecret = asString(readStorageValue(window.sessionStorage, sessionSecretStorageKey));
+      const currentSessionSecret = asString(readStorageValue(window.sessionStorage, sessionSecretStorageKey));
+      const legacySessionSecret = asString(readStorageValue(window.sessionStorage, legacySessionSecretStorageKey));
+      const sessionSecret = currentSessionSecret || legacySessionSecret;
       cleanupLegacySecret();
+      if (!currentSessionSecret && legacySessionSecret) saveSessionSecret(legacySessionSecret);
+      if (legacySessionSecret) {
+        try { sessionStorage.removeItem(legacySessionSecretStorageKey); } catch {}
+      }
       session.apiBase = panelAuth?.apiBase || location.origin;
       session.managementKey = sessionSecret || panelAuth?.managementKey || "";
     }

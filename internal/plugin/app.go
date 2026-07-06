@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"cpa-access-manager/internal/access"
+	"github.com/wnnz/cpa-toolkit/internal/access"
 	"gopkg.in/yaml.v3"
 )
 
@@ -98,7 +98,7 @@ func (a *App) configure(raw []byte) error {
 func DefaultConfig() Config {
 	return Config{
 		Enabled:       true,
-		DBPath:        "/opt/cli-proxy-api/plugins/cpa-access-manager.db",
+		DBPath:        "/opt/cli-proxy-api/plugins/cpa-toolkit.db",
 		AllowUnpriced: false,
 	}
 }
@@ -116,7 +116,7 @@ func (a *App) registration() Registration {
 			Name:             PluginName,
 			Version:          Version,
 			Author:           "mossdeck",
-			GitHubRepository: "https://github.com/mossdeck/cpa-access-manager",
+			GitHubRepository: "https://github.com/wnnz/cpa-toolkit",
 			ConfigFields: []ConfigField{
 				{Name: "enabled", Type: "boolean", Description: "Enable or disable plugin request enforcement."},
 				{Name: "db_path", Type: "string", Description: "SQLite database path."},
@@ -186,6 +186,7 @@ func (a *App) authenticate(raw []byte) ([]byte, error) {
 	meta := map[string]string{
 		"provider":                   PluginID,
 		"key_id":                     key.ID,
+		"cpa_toolkit_key_id":         key.ID,
 		"cpa_access_manager_key_id":  key.ID,
 		"cpa_access_requested_model": requestedModel,
 	}
@@ -326,7 +327,7 @@ func keyIDFromHeaders(ctx context.Context, store *access.Store, headers http.Hea
 }
 
 func keyIDFromMetadata(meta map[string]any) string {
-	for _, key := range []string{"cpa_access_manager_key_id", "key_id", "api_key", "principal"} {
+	for _, key := range []string{"cpa_toolkit_key_id", "cpa_access_manager_key_id", "key_id", "api_key", "principal"} {
 		if value, ok := meta[key]; ok {
 			if s := strings.TrimSpace(fmt.Sprint(value)); s != "" {
 				return s

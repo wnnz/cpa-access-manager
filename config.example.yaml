@@ -1,4 +1,4 @@
 enabled: true
-db_path: /opt/cli-proxy-api/plugins/cpa-access-manager.db
+db_path: /opt/cli-proxy-api/plugins/cpa-toolkit.db
 allow_unpriced: false
 

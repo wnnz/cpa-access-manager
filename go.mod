@@ -1,4 +1,4 @@
-module cpa-access-manager
+module github.com/wnnz/cpa-toolkit
 
 go 1.24.0
 

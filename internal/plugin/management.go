@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"cpa-access-manager/internal/access"
-	"cpa-access-manager/internal/web"
+	"github.com/wnnz/cpa-toolkit/internal/access"
+	"github.com/wnnz/cpa-toolkit/internal/web"
 )
 
 type keyRequest struct {

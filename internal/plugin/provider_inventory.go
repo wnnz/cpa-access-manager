@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"cpa-access-manager/internal/access"
+	"github.com/wnnz/cpa-toolkit/internal/access"
 )
 
 const defaultCPAAPIBase = "http://127.0.0.1:8317"

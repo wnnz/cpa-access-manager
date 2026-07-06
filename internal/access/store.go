@@ -28,7 +28,7 @@ type Store struct {
 func OpenStore(ctx context.Context, dbPath string, allowUnpriced bool) (*Store, error) {
 	dbPath = strings.TrimSpace(dbPath)
 	if dbPath == "" {
-		dbPath = "/opt/cli-proxy-api/plugins/cpa-access-manager.db"
+		dbPath = "/opt/cli-proxy-api/plugins/cpa-toolkit.db"
 	}
 	if err := ensureDBDir(dbPath); err != nil {
 		return nil, err
