@@ -61,6 +61,80 @@ func TestPickCandidate_GroupBindingOnlyUsesGroupMembers(t *testing.T) {
 	}
 }
 
+func TestPickCandidate_GroupAuthFileMemberUsesAuthID(t *testing.T) {
+	store := newTestStore(t)
+	if err := store.UpsertInventoryItem(context.Background(), InventoryItem{
+		ID:       "auth-file-a",
+		Type:     InventoryAuthFile,
+		Provider: "codex",
+		AuthID:   "auth-file-a",
+		Name:     "auth-file-a.json",
+	}); err != nil {
+		t.Fatalf("UpsertInventoryItem() error = %v", err)
+	}
+	group, err := store.CreateGroup(context.Background(), "g-files", "Files", "", []GroupMember{{MemberType: InventoryAuthFile, MemberID: "auth-file-a"}})
+	if err != nil {
+		t.Fatalf("CreateGroup() error = %v", err)
+	}
+	key, _, err := store.CreateKey(context.Background(), "file-key", true, Limits{}, []Binding{{TargetType: BindingGroup, TargetID: group.ID}})
+	if err != nil {
+		t.Fatalf("CreateKey() error = %v", err)
+	}
+
+	got, err := store.PickCandidate(context.Background(), key.ID, []Candidate{
+		{ID: "auth-file-b", Provider: "codex", Priority: 1},
+		{ID: "auth-file-a", Provider: "codex", Priority: 100},
+	})
+	if err != nil {
+		t.Fatalf("PickCandidate() error = %v", err)
+	}
+	if got.ID != "auth-file-a" {
+		t.Fatalf("PickCandidate() = %q, want auth-file-a", got.ID)
+	}
+}
+
+func TestUpsertAuthFilesDoesNotExposeAuthFileAsProviderInstance(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+	staleID := ProviderInstanceID("codex", "auth-file-a", "", "")
+	if err := store.UpsertInventoryItem(ctx, InventoryItem{
+		ID:       staleID,
+		Type:     InventoryProviderInstance,
+		Provider: "codex",
+		AuthID:   "auth-file-a",
+		Name:     "account@example.com",
+		Label:    "account@example.com",
+	}); err != nil {
+		t.Fatalf("UpsertInventoryItem(stale provider instance) error = %v", err)
+	}
+	if err := store.UpsertAuthFiles(ctx, []HostAuthFileEntry{{
+		ID:       "auth-file-a",
+		Provider: "codex",
+		Name:     "auth-file-a.json",
+		Email:    "account@example.com",
+	}}); err != nil {
+		t.Fatalf("UpsertAuthFiles() error = %v", err)
+	}
+
+	items, err := store.ListInventory(ctx)
+	if err != nil {
+		t.Fatalf("ListInventory() error = %v", err)
+	}
+	var authFiles, providerInstances int
+	for _, item := range items {
+		switch item.Type {
+		case InventoryAuthFile:
+			authFiles++
+		case InventoryProviderInstance:
+			providerInstances++
+			t.Fatalf("unexpected provider_instance from auth file: %#v", item)
+		}
+	}
+	if authFiles != 1 || providerInstances != 0 {
+		t.Fatalf("inventory counts auth_file=%d provider_instance=%d, want 1/0", authFiles, providerInstances)
+	}
+}
+
 func TestPickCandidate_ProviderInstanceDoesNotAllowSameProviderOtherAuth(t *testing.T) {
 	store := newTestStore(t)
 	instanceID := ProviderInstanceID("codex", "auth-a", "", "")
@@ -114,6 +188,36 @@ func TestAuthenticate_LimitedKeyRejectsUnpricedModel(t *testing.T) {
 	_, err = store.Authenticate(context.Background(), plain, "gpt-test", time.Now())
 	if !errors.Is(err, ErrMissingPriceRule) {
 		t.Fatalf("Authenticate() error = %v, want ErrMissingPriceRule", err)
+	}
+}
+
+func TestRecordUsageUnpricedModelStillRecordsLedger(t *testing.T) {
+	store := newTestStore(t)
+	key, _, err := store.CreateKey(context.Background(), "team", true, Limits{}, []Binding{{TargetType: BindingAuthID, TargetID: "auth-a"}})
+	if err != nil {
+		t.Fatalf("CreateKey() error = %v", err)
+	}
+	entry, err := store.RecordUsage(context.Background(), UsageEntry{
+		KeyID:    key.ID,
+		Provider: "codex",
+		Model:    "unpriced-model",
+		Detail:   UsageDetail{InputTokens: 12, OutputTokens: 34, TotalTokens: 46},
+	})
+	if err != nil {
+		t.Fatalf("RecordUsage() error = %v", err)
+	}
+	if entry.USD != 0 {
+		t.Fatalf("RecordUsage() USD = %v, want 0", entry.USD)
+	}
+	entries, err := store.ListUsage(context.Background(), key.ID, 10)
+	if err != nil {
+		t.Fatalf("ListUsage() error = %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("ListUsage() len = %d, want 1", len(entries))
+	}
+	if entries[0].Detail.TotalTokens != 46 || entries[0].USD != 0 {
+		t.Fatalf("usage entry = %#v, want total tokens 46 and USD 0", entries[0])
 	}
 }
 

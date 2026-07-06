@@ -238,6 +238,49 @@ func TestAppUsageHandleRecordsByPluginPrincipal(t *testing.T) {
 	}
 }
 
+func TestAppUsageHandleRecordsByMetadataKeyID(t *testing.T) {
+	app, store := newTestApp(t)
+	instanceID := mustUpsertProviderInstance(t, store, "codex", "auth-a")
+	key, _, err := store.CreateKey(context.Background(), "team", true, access.Limits{}, []access.Binding{{TargetType: access.BindingProviderInstance, TargetID: instanceID}})
+	if err != nil {
+		t.Fatalf("CreateKey() error = %v", err)
+	}
+
+	req := UsageHandleRequest{
+		Provider: "codex",
+		Model:    "unpriced-model",
+		Metadata: map[string]any{"cpa_access_manager_key_id": key.ID},
+		AuthID:   "auth-a",
+		Detail: UsageDetailIn{
+			InputTokens:  7,
+			OutputTokens: 11,
+			TotalTokens:  18,
+		},
+	}
+	rawReq, _ := json.Marshal(req)
+	rawResp, err := app.HandleMethod(MethodUsageHandle, rawReq)
+	if err != nil {
+		t.Fatalf("HandleMethod(usage.handle) error = %v", err)
+	}
+	var env Envelope
+	if err := json.Unmarshal(rawResp, &env); err != nil {
+		t.Fatalf("Unmarshal envelope error = %v", err)
+	}
+	if !env.OK {
+		t.Fatalf("usage envelope = %#v, want ok", env)
+	}
+	entries, err := store.ListUsage(context.Background(), key.ID, 10)
+	if err != nil {
+		t.Fatalf("ListUsage() error = %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("usage entries len = %d, want 1", len(entries))
+	}
+	if entries[0].Detail.TotalTokens != 18 || entries[0].USD != 0 {
+		t.Fatalf("usage entry = %#v, want total tokens 18 and USD 0", entries[0])
+	}
+}
+
 func TestAppManagementRotateRouteUsesExactNormalizedPath(t *testing.T) {
 	app, store := newTestApp(t)
 	key, _, err := store.CreateKey(context.Background(), "team", true, access.Limits{}, nil)

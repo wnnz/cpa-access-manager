@@ -1,313 +1,1302 @@
 <!doctype html>
-<html lang="zh-CN">
-<head>
+<html lang="zh-CN"><head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>CPA Access Manager</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>API Key 管理</title>
   <style>
     :root {
+      --bg: #f7f5f1;
+      --surface: #fdfbf8;
+      --surface-muted: #f0eee8;
+      --fg: #1d1b17;
+      --muted: #777168;
+      --subtle: #a39c91;
+      --border: #e5dfd6;
+      --border-strong: #d8d0c5;
+      --primary: #12b981;
+      --primary-hover: #079467;
+      --primary-soft: #e5f8f0;
+      --success-soft: #dcf8ec;
+      --warning-soft: #fff2d6;
+      --danger: #d45549;
+      --danger-soft: #fae6e2;
+      --radius: 10px;
+      --shadow: 0 14px 34px rgba(37, 31, 22, 0.08);
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+      --mono: "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
+      --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-emphasized: cubic-bezier(0.2, 0.8, 0.2, 1);
+      --motion-fast: 140ms;
+      --motion-base: 220ms;
       color-scheme: light;
-      font-family: Inter, "Segoe UI", "Microsoft YaHei", sans-serif;
-      --bg: #f5f6f7;
-      --panel: #ffffff;
-      --panel-soft: #fafbfc;
-      --text: #20242c;
-      --muted: #697281;
-      --border: #dfe3ea;
-      --border-strong: #c8ced8;
-      --accent: #24745f;
-      --accent-soft: #e7f3ef;
-      --danger: #b42318;
-      --danger-soft: #fff1f0;
-      --warn: #8a5a00;
-      --warn-soft: #fff8e1;
-      --shadow: 0 1px 2px rgba(18, 25, 38, .06);
     }
+
     * { box-sizing: border-box; }
-    body { margin: 0; background: var(--bg); color: var(--text); font-size: 14px; }
-    .app { max-width: 1240px; margin: 0 auto; padding: 20px; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 18% 0%, rgba(255, 255, 255, 0.74), transparent 32%),
+        var(--bg);
+      color: var(--fg);
+      font-family: var(--font);
+      font-size: 14px;
+    }
+
+    button, input, select { font: inherit; }
+    button { border: 0; cursor: pointer; }
+
+    .page {
+      width: min(1552px, calc(100vw - 56px));
+      margin: 0 auto;
+      padding: 18px 0 36px;
+    }
+
     .topbar {
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       justify-content: space-between;
       gap: 16px;
-      padding-bottom: 16px;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 14px;
+      min-height: 52px;
+      margin-bottom: 24px;
+      padding: 9px 14px;
     }
-    h1 { font-size: 22px; line-height: 1.2; margin: 0 0 4px; letter-spacing: 0; }
-    h2 { font-size: 16px; margin: 0; letter-spacing: 0; }
-    label { display: block; font-size: 12px; font-weight: 650; color: var(--muted); margin-bottom: 6px; }
-    input, select, textarea, button { font: inherit; }
-    input, select, textarea {
-      width: 100%;
-      border: 1px solid var(--border-strong);
-      border-radius: 6px;
-      padding: 9px 10px;
-      background: #fff;
-      color: inherit;
-      outline: none;
+
+    .title h1 {
+      margin: 0;
+      color: var(--fg);
+      font-size: 18px;
+      line-height: 1.2;
+      font-weight: 700;
+      letter-spacing: 0;
     }
-    input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-    textarea { min-height: 180px; resize: vertical; line-height: 1.45; }
-    button {
-      border: 1px solid var(--border-strong);
-      background: #fff;
-      color: var(--text);
-      border-radius: 6px;
-      padding: 8px 11px;
-      cursor: pointer;
-      min-height: 36px;
-    }
-    button:hover { border-color: #aeb7c5; background: var(--panel-soft); }
-    button.primary { background: var(--accent); color: white; border-color: var(--accent); }
-    button.danger { color: var(--danger); border-color: #efb8b0; background: #fff; }
-    button.tab {
-      border-color: transparent;
-      background: transparent;
+
+    .title p {
+      display: inline-flex;
+      margin: 0 0 0 10px;
       color: var(--muted);
-      border-radius: 6px 6px 0 0;
-      padding-inline: 14px;
+      font-size: 13px;
     }
-    button.tab.active {
-      color: var(--accent);
-      background: var(--panel);
-      border-color: var(--border);
-      border-bottom-color: var(--panel);
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      margin-left: auto;
+      flex: 0 0 auto;
     }
-    .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-    .muted { color: var(--muted); }
-    .mono { font-family: "Cascadia Mono", Consolas, monospace; }
-    .status-pill {
+
+    .btn {
+      height: 36px;
       display: inline-flex;
       align-items: center;
-      min-height: 30px;
-      padding: 5px 10px;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      background: var(--panel);
-      color: var(--muted);
-      font-size: 12px;
-      white-space: nowrap;
-    }
-    .status-pill.ok { color: var(--accent); background: var(--accent-soft); border-color: #bddbd1; }
-    .notice { white-space: pre-wrap; background: #eef6ff; border: 1px solid #bfdcff; padding: 10px 12px; border-radius: 6px; margin: 10px 0; }
-    .notice.error { background: var(--danger-soft); border-color: #ffccc7; color: var(--danger); }
-    .summary {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(140px, 1fr));
-      gap: 10px;
-      margin: 12px 0 16px;
-    }
-    .summary-item {
-      background: var(--panel);
-      border: 1px solid var(--border);
+      justify-content: center;
+      gap: 6px;
+      padding: 0 13px;
       border-radius: 8px;
-      padding: 12px;
-      box-shadow: var(--shadow);
+      border: 1px solid var(--border-strong);
+      background: #ebe8e2;
+      color: var(--fg);
+      font-weight: 700;
+      white-space: nowrap;
+      transition:
+        color var(--motion-fast) var(--ease-out),
+        background-color var(--motion-fast) var(--ease-out),
+        border-color var(--motion-fast) var(--ease-out),
+        box-shadow var(--motion-fast) var(--ease-out),
+        transform var(--motion-fast) var(--ease-out);
     }
-    .summary-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-    .summary-value { font-size: 22px; font-weight: 720; line-height: 1.1; }
-    .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-top: 8px; }
-    .tab-panel {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-top: 0;
-      border-radius: 0 0 8px 8px;
-      padding: 16px;
-      box-shadow: var(--shadow);
+
+    .btn:hover {
+      border-color: #cfc7bc;
+      color: var(--fg);
+      background: #e2ded6;
+      transform: translateY(-1px);
     }
-    .tab-panel[hidden] { display: none; }
-    .section-head {
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .btn.primary {
+      color: #fff;
+      border-color: var(--primary);
+      background: var(--primary);
+      box-shadow: none;
+    }
+
+    .btn.primary:hover {
+      color: #fff;
+      background: var(--primary-hover);
+      border-color: var(--primary-hover);
+    }
+
+    .btn.primary[data-od-id="create-api-key-button"],
+    .btn.primary[data-od-id="save-api-key-button"],
+    .btn.primary[data-od-id="save-settings-button"] {
+      border-color: #c96442;
+      background: #c96442;
+    }
+
+    .btn.primary[data-od-id="create-api-key-button"]:hover,
+    .btn.primary[data-od-id="save-api-key-button"]:hover,
+    .btn.primary[data-od-id="save-settings-button"]:hover {
+      border-color: #b35739;
+      background: #b35739;
+    }
+
+    .btn svg,
+    .icon-btn svg {
+      width: 16px;
+      height: 16px;
+      stroke-width: 2;
+    }
+
+    .card {
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .card-head {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      margin-bottom: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
     }
-    .table-wrap { overflow: auto; border: 1px solid var(--border); border-radius: 6px; }
-    table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 760px; }
-    th, td { text-align: left; border-bottom: 1px solid var(--border); padding: 9px 10px; vertical-align: top; }
-    th { color: var(--muted); font-size: 12px; font-weight: 700; background: var(--panel-soft); }
-    tr:last-child td { border-bottom: 0; }
-    .empty { padding: 24px; color: var(--muted); text-align: center; }
-    .badge {
+
+    .card-title h2 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 650;
+    }
+
+    .card-title p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .toolbar {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      justify-content: flex-start;
+      gap: 24px;
+      padding: 0;
+      border-bottom: 0;
+      background: transparent;
+    }
+
+    .left-tools,
+    .right-tools {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .right-tools {
+      width: 100%;
+    }
+
+    .left-tools {
+      min-height: 52px;
+      padding: 9px 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: rgba(253, 251, 248, 0.82);
+    }
+
+    .tabs {
+      display: inline-flex;
+      gap: 10px;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+    }
+
+    .tab {
+      height: 32px;
       display: inline-flex;
       align-items: center;
-      padding: 2px 8px;
-      border-radius: 999px;
+      gap: 7px;
+      padding: 0 14px;
       border: 1px solid var(--border);
-      background: var(--panel-soft);
+      border-radius: 999px;
+      background: #fffefa;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      transition:
+        color var(--motion-fast) var(--ease-out),
+        background-color var(--motion-fast) var(--ease-out),
+        box-shadow var(--motion-fast) var(--ease-out);
+    }
+
+    .tab.active {
+      color: var(--fg);
+      background: #fffefa;
+      box-shadow: 0 1px 0 rgba(37, 31, 22, 0.04);
+    }
+
+    .tab.active::before {
+      content: "";
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--primary);
+      box-shadow: 0 0 0 4px rgba(18, 185, 129, 0.12);
+    }
+
+    .search {
+      position: relative;
+      width: min(240px, 100%);
+    }
+
+    .search svg {
+      position: absolute;
+      left: 11px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--subtle);
+      width: 16px;
+      height: 16px;
+    }
+
+    input,
+    select {
+      height: 34px;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--fg);
+      outline: none;
+      transition:
+        border-color var(--motion-fast) var(--ease-out),
+        box-shadow var(--motion-fast) var(--ease-out);
+    }
+
+    input { padding: 0 10px; }
+
+    select {
+      min-width: 156px;
+      padding: 0 30px 0 10px;
+    }
+
+    .right-tools select {
+      height: 36px;
+      background-color: #ebe8e2;
+      font-weight: 700;
+    }
+
+    .search input {
+      width: 100%;
+      height: 36px;
+      padding-left: 34px;
+      font-size: 14px;
+    }
+
+    input:focus,
+    select:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px rgba(18, 185, 129, 0.13);
+    }
+
+    .table-wrap {
+      margin-top: 24px;
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #f7f4ee;
+    }
+
+    table {
+      width: 100%;
+      min-width: 1410px;
+      border-collapse: separate;
+      border-spacing: 0;
+      table-layout: fixed;
+    }
+
+    .col-key { width: 250px; }
+    .col-type { width: 128px; }
+    .col-resources { width: 290px; }
+    .col-quota { width: 210px; }
+    .col-usage { width: 136px; }
+    .col-last { width: 106px; }
+    .col-status { width: 112px; }
+    .col-actions { width: 176px; }
+
+    thead { display: table-header-group; }
+
+    tbody tr {
+      background: var(--surface-muted);
+      transition:
+        background-color var(--motion-fast) var(--ease-out);
+    }
+
+    th {
+      height: 40px;
+      padding: 0 14px;
+      color: #5f574d;
+      background: #e9e5dc;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    th:first-child { border-top-left-radius: 9px; }
+    th:last-child {
+      border-top-right-radius: 9px;
+      text-align: right;
+    }
+
+    td {
+      padding: 14px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    td.actions-cell {
+      padding-left: 8px;
+      padding-right: 10px;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: 0;
+    }
+
+    tbody tr:hover {
+      background: #e9e6df;
+    }
+
+    .key-cell {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .key-icon {
+      width: 34px;
+      height: 34px;
+      flex: 0 0 auto;
+      display: grid;
+      place-items: center;
+      border-radius: 9px;
+      color: #6d6760;
+      background: #e9e6df;
+      border: 0;
+      box-shadow: none;
+    }
+
+    .key-icon svg {
+      width: 21px;
+      height: 21px;
+      display: block;
+    }
+
+    .key-name {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .key-token {
+      margin-top: 6px;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      height: 24px;
+      padding: 0 8px;
+      border-radius: 5px;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .pill.neutral {
+      color: #403b35;
+      background: #fffefa;
+      border: 1px solid var(--border);
+    }
+
+    .pill.success {
+      color: #05764f;
+      background: var(--success-soft);
+      border: 1px solid #b9ead6;
+    }
+
+    .pill.warn {
+      color: #a15c0b;
+      background: var(--warning-soft);
+      border: 1px solid #efd9a2;
+    }
+
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .resources {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      min-width: 0;
+      max-width: none;
+    }
+
+    .resource {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 26px;
+      padding: 0 8px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      background: #fffefa;
+      color: #4b453d;
       font-size: 12px;
       white-space: nowrap;
     }
-    .badge.on { color: var(--accent); background: var(--accent-soft); border-color: #bddbd1; }
-    .badge.off { color: var(--danger); background: var(--danger-soft); border-color: #f3b8b1; }
-    .quota-grid { display: grid; gap: 2px; min-width: 145px; }
-    .binding-list { display: flex; flex-wrap: wrap; gap: 5px; max-width: 360px; }
-    .price-editor { display: grid; gap: 10px; }
-    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
-    .row.three { grid-template-columns: repeat(3, 1fr); }
-    dialog {
-      width: min(780px, calc(100vw - 32px));
-      padding: 0;
+
+    .resource.mark-provider {
+      background: #e5f8f0;
+      border-color: #c5ecdd;
+      color: #087452;
+    }
+
+    .resource.mark-file {
+      background: #fffefa;
+      border-color: #e3ddd3;
+      color: #62584d;
+    }
+
+    .quota {
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .quota-cell { min-width: 0; }
+
+    .type-cell,
+    .status-cell {
+      white-space: nowrap;
+    }
+
+    .quota-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .quota-line span {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 6px;
+      min-width: 0;
+      white-space: nowrap;
+    }
+
+    .quota-label {
+      min-width: 38px;
+      color: var(--fg);
+      font-weight: 700;
+    }
+
+    .quota-line strong {
+      color: var(--fg);
+      font-weight: 600;
+    }
+
+    .bar {
+      height: 6px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #e4ded4;
+    }
+
+    .bar span {
+      display: block;
+      width: var(--value);
+      height: 100%;
+      border-radius: inherit;
+      background: var(--bar-color, var(--primary));
+      transition:
+        width var(--motion-base) var(--ease-out),
+        background-color var(--motion-fast) var(--ease-out);
+    }
+
+    .row-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 4px;
+    }
+
+    .meta-stack {
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .usage-cell { min-width: 0; }
+
+    .usage-stat {
+      display: grid;
+      gap: 6px;
+      color: #2f2a24;
+      font-size: 12px;
+      line-height: 1.25;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .usage-line {
+      display: flex;
+      align-items: baseline;
+      gap: 5px;
+      white-space: nowrap;
+    }
+
+    .usage-line span {
+      color: #5f574d;
+      font-weight: 600;
+    }
+
+    .usage-line strong {
+      color: #2f2a24;
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .usage-line.cost strong {
+      color: #008a7a;
+      font-weight: 800;
+    }
+
+    .last-cell {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+      white-space: nowrap;
+    }
+
+    .last-cell strong {
+      display: none;
+    }
+
+    .empty-row td {
+      height: 96px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .icon-btn {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
       border: 1px solid var(--border);
       border-radius: 8px;
-      background: var(--panel);
-      color: var(--text);
-      box-shadow: 0 20px 50px rgba(18, 25, 38, .22);
+      color: #5f574d;
+      background: #f8f6f1;
+      transition:
+        color var(--motion-fast) var(--ease-out),
+        background-color var(--motion-fast) var(--ease-out),
+        transform var(--motion-fast) var(--ease-out);
     }
-    dialog form { padding: 18px; }
-    dialog::backdrop { background: rgba(20, 27, 38, .38); }
-    .dialog-head { margin-bottom: 16px; }
-    .dialog-actions { justify-content: flex-end; margin-top: 14px; }
-    @media (max-width: 820px) {
-      .topbar { flex-direction: column; align-items: stretch; }
-      .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .row, .row.three { grid-template-columns: 1fr; }
-      .tab-panel { padding: 12px; }
-      .app { padding: 14px; }
+
+    .icon-btn:hover {
+      color: var(--fg);
+      background: #eee9e1;
+      transform: translateY(-1px);
     }
+
+    .icon-btn.danger {
+      color: #b8573f;
+    }
+
+    .icon-btn.danger.confirming {
+      color: #fff;
+      border-color: #c96442;
+      background: #c96442;
+    }
+
+    .icon-btn.danger:hover {
+      color: #fff;
+      border-color: #c96442;
+      background: #c96442;
+    }
+
+    .icon-btn:active {
+      transform: translateY(0);
+    }
+
+    .muted { color: var(--muted); }
+
+    .drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: block;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      background: rgba(42, 37, 30, 0.24);
+      transition:
+        opacity var(--motion-base) var(--ease-out),
+        visibility 0s linear var(--motion-base);
+    }
+
+    .drawer-backdrop.open {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      transition-delay: 0s;
+    }
+
+    .drawer {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: min(620px, 100vw);
+      display: flex;
+      flex-direction: column;
+      background: #fff;
+      box-shadow: var(--shadow);
+      opacity: 0.98;
+      transform: translate3d(20px, 0, 0);
+      transition:
+        transform 240ms var(--ease-emphasized),
+        opacity var(--motion-base) var(--ease-out);
+      will-change: transform, opacity;
+    }
+
+    .drawer-backdrop.open .drawer {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+    }
+
+    body.drawer-active,
+    body.settings-active {
+      overflow: hidden;
+    }
+
+    .drawer-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .drawer-head h3 {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 650;
+    }
+
+    .drawer-head p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .drawer-body {
+      flex: 1;
+      overflow: auto;
+      padding: 20px;
+      background: var(--bg);
+    }
+
+    .drawer-foot {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      padding: 14px 20px;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .settings-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      background: rgba(42, 37, 30, 0.24);
+      transition:
+        opacity var(--motion-base) var(--ease-out),
+        visibility 0s linear var(--motion-base);
+    }
+
+    .settings-backdrop.open {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      transition-delay: 0s;
+    }
+
+    .settings-modal {
+      width: min(420px, 100%);
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      opacity: 0.98;
+      transform: translate3d(0, 10px, 0);
+      transition:
+        transform 240ms var(--ease-emphasized),
+        opacity var(--motion-base) var(--ease-out);
+    }
+
+    .settings-backdrop.open .settings-modal {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+    }
+
+    .settings-body {
+      display: grid;
+      gap: 14px;
+      padding: 18px 20px 20px;
+      background: var(--bg);
+    }
+
+    .settings-helper {
+      margin: -4px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .field {
+      display: grid;
+      gap: 7px;
+    }
+
+    .field.quota-row-field {
+      align-content: start;
+      align-self: start;
+    }
+
+    .field.quota-row-field .error:not(.show) {
+      height: 0;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .field.full { grid-column: 1 / -1; }
+
+    label {
+      color: #344054;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .field input,
+    .field select {
+      width: 100%;
+      height: 36px;
+    }
+
+    .resource-picker {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+    }
+
+    .resource-option {
+      display: grid;
+      grid-template-columns: 18px 1fr;
+      gap: 10px;
+      align-items: start;
+      padding: 9px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #fffefa;
+      transition:
+        background-color var(--motion-fast) var(--ease-out),
+        border-color var(--motion-fast) var(--ease-out),
+        box-shadow var(--motion-fast) var(--ease-out);
+    }
+
+    .resource-option:has(input:checked) {
+      border-color: var(--primary);
+      background: var(--primary-soft);
+    }
+
+    .resource-option input {
+      width: 16px;
+      height: 16px;
+      margin: 2px 0 0;
+      accent-color: var(--primary);
+    }
+
+    .resource-option strong {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .resource-option small {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .helper {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    .error {
+      color: var(--danger);
+      font-size: 12px;
+      font-weight: 500;
+      line-height: 1.35;
+      min-height: 16px;
+      opacity: 0;
+      transform: translate3d(0, -2px, 0);
+      transition:
+        opacity 120ms var(--ease-out),
+        transform 120ms var(--ease-out);
+    }
+
+    .error.show {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      z-index: 80;
+      transform: translate3d(-50%, 12px, 0);
+      opacity: 0;
+      pointer-events: none;
+      padding: 10px 13px;
+      border-radius: 6px;
+      color: #fff;
+      background: rgba(29, 27, 23, 0.92);
+      box-shadow: var(--shadow);
+      transition:
+        opacity 180ms var(--ease-out),
+        transform var(--motion-base) var(--ease-out);
+      will-change: transform, opacity;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translate3d(-50%, 0, 0);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .btn,
+      .icon-btn,
+      .tab,
+      input,
+      select,
+      .bar span,
+      .drawer-backdrop,
+      .drawer,
+      .settings-backdrop,
+      .settings-modal,
+      .resource-option,
+      .error,
+      .toast {
+        transition-duration: 1ms !important;
+      }
+
+      .btn:hover,
+      .icon-btn:hover,
+      .drawer,
+      .drawer-backdrop.open .drawer,
+      .settings-modal,
+      .settings-backdrop.open .settings-modal,
+      .error,
+      .error.show {
+        transform: none !important;
+      }
+
+      .toast,
+      .toast.show {
+        transform: translate3d(-50%, 0, 0) !important;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .page {
+        width: min(100vw - 28px, 1440px);
+        padding-top: 14px;
+      }
+
+      .topbar,
+      .top-actions,
+      .toolbar,
+      .left-tools,
+      .right-tools {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .title p {
+        display: flex;
+      }
+
+      .title p {
+        margin: 8px 0 0;
+      }
+
+      .search { width: 100%; }
+
+      .right-tools select {
+        width: 100%;
+      }
+
+      .top-actions {
+        width: 100%;
+        margin-left: 0;
+      }
+
+      .card-head {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .tabs { overflow-x: auto; }
+      .tab { flex: 0 0 auto; }
+
+      .form-grid { grid-template-columns: 1fr; }
+    }
+  
+
+    .notice {
+      display: none;
+      margin: 0 0 18px;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: rgba(253, 251, 248, 0.92);
+      color: var(--fg);
+    }
+
+    .notice.show { display: block; }
+    .notice.error {
+      border-color: rgba(212, 85, 73, 0.36);
+      background: var(--danger-soft);
+    }
+
+    .notice-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .plain-key {
+      display: block;
+      margin-top: 10px;
+      padding: 10px;
+      overflow: auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--fg);
+      font-family: var(--mono);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .quota-empty {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .resource-option.is-empty {
+      cursor: default;
+      color: var(--muted);
+    }
+
+    .resource-option.is-empty:hover {
+      border-color: var(--border);
+      background: var(--surface);
+      transform: none;
+    }
+
   </style>
 </head>
 <body>
-  <main class="app">
-    <header class="topbar">
-      <div>
-        <h1>CPA Access Manager</h1>
-        <div class="muted">Key、分组、价格和用量管理</div>
-      </div>
-      <div class="actions">
-        <span id="authStatus" class="status-pill"></span>
-        <button class="primary" id="reload">刷新</button>
+  <main class="page" data-od-id="api-key-list-page">
+    <header class="topbar" data-od-id="topbar">
+      <div class="title" data-od-id="page-title-area">
+        <h1 data-od-id="page-title">API Key 管理</h1>
       </div>
     </header>
 
-    <div id="msg"></div>
-
-    <section class="summary" aria-label="概览">
-      <div class="summary-item"><div class="summary-label">Keys</div><div class="summary-value" id="metricKeys">0</div></div>
-      <div class="summary-item"><div class="summary-label">Groups</div><div class="summary-value" id="metricGroups">0</div></div>
-      <div class="summary-item"><div class="summary-label">Prices</div><div class="summary-value" id="metricPrices">0</div></div>
-      <div class="summary-item"><div class="summary-label">Usage</div><div class="summary-value" id="metricUsage">0</div></div>
-    </section>
-
-    <nav class="tabs" aria-label="管理视图">
-      <button class="tab active" data-tab="keys">Keys</button>
-      <button class="tab" data-tab="groups">Groups</button>
-      <button class="tab" data-tab="prices">Prices</button>
-      <button class="tab" data-tab="usage">Usage</button>
-    </nav>
-
-    <section id="tab-keys" class="tab-panel">
-      <div class="section-head">
-        <div>
-          <h2>Keys</h2>
-          <div class="muted">下游 Key、额度和资源绑定</div>
-        </div>
-        <button class="primary" id="newKey">新建 Key</button>
-      </div>
-      <div id="keys"></div>
-    </section>
-
-    <section id="tab-groups" class="tab-panel" hidden>
-      <div class="section-head">
-        <div>
-          <h2>Groups</h2>
-          <div class="muted">资源分组和成员绑定</div>
-        </div>
-        <button id="newGroup">新建分组</button>
-      </div>
-      <div id="groups"></div>
-    </section>
-
-    <section id="tab-prices" class="tab-panel" hidden>
-      <div class="section-head">
-        <div>
-          <h2>Prices</h2>
-          <div class="muted">按 provider + model 配置 USD 单价</div>
-        </div>
-        <button class="primary" id="savePrices">保存价格</button>
-      </div>
-      <div class="price-editor">
-        <textarea id="pricesText" spellcheck="false" class="mono" placeholder='[{"provider":"codex","model":"gpt-5","input_usd_per_million":1.25,"output_usd_per_million":10,"cache_read_usd_per_million":0.125}]'></textarea>
-      </div>
-    </section>
-
-    <section id="tab-usage" class="tab-panel" hidden>
-      <div class="section-head">
-        <div>
-          <h2>Usage</h2>
-          <div class="muted">最近 50 条计费账本</div>
+    <section class="card" data-od-id="api-key-table-card">
+      <div id="notice" class="notice" role="status" aria-live="polite"></div>
+      <div class="toolbar" data-od-id="table-toolbar">
+        <div class="right-tools">
+          <div class="search" data-od-id="global-search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.2-3.2"></path></svg>
+            <input id="searchInput" placeholder="搜索 Key、AI 类型或资源">
+          </div>
+          <select id="statusFilter" data-od-id="status-filter">
+            <option value="all">全部状态</option>
+            <option value="active">启用</option>
+            <option value="warning">额度预警</option>
+            <option value="disabled">停用</option>
+          </select>
+          <select id="typeFilter" data-od-id="ai-type-filter">
+            <option value="all">全部 AI 类型</option>
+          </select>
+          <select id="resourceFilter" data-od-id="resource-filter">
+            <option value="all">全部关联资源</option>
+          </select>
+          <div class="top-actions" data-od-id="top-actions">
+            <button class="btn" id="openSettings" data-od-id="settings-button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"></path><path d="M19.4 15a1.8 1.8 0 0 0 .36 1.98l.05.05a2.18 2.18 0 0 1-3.08 3.08l-.05-.05a1.8 1.8 0 0 0-1.98-.36 1.8 1.8 0 0 0-1.1 1.65V21.5a2.2 2.2 0 0 1-4.4 0v-.08A1.8 1.8 0 0 0 8.1 19.77a1.8 1.8 0 0 0-1.98.36l-.05.05a2.18 2.18 0 0 1-3.08-3.08l.05-.05A1.8 1.8 0 0 0 3.4 15a1.8 1.8 0 0 0-1.65-1.1H1.7a2.2 2.2 0 0 1 0-4.4h.08A1.8 1.8 0 0 0 3.43 8.4a1.8 1.8 0 0 0-.36-1.98l-.05-.05A2.18 2.18 0 0 1 6.1 3.29l.05.05a1.8 1.8 0 0 0 1.98.36h.02A1.8 1.8 0 0 0 9.25 2.05V2a2.2 2.2 0 0 1 4.4 0v.08a1.8 1.8 0 0 0 1.1 1.65 1.8 1.8 0 0 0 1.98-.36l.05-.05a2.18 2.18 0 0 1 3.08 3.08l-.05.05a1.8 1.8 0 0 0-.36 1.98v.02a1.8 1.8 0 0 0 1.65 1.1h.08a2.2 2.2 0 0 1 0 4.4h-.08A1.8 1.8 0 0 0 19.4 15Z"></path></svg>
+              设置
+            </button>
+            <button class="btn" id="refreshBtn" data-od-id="refresh-button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path><path d="M3 21v-5h5"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M21 3v5h-5"></path></svg>
+              刷新
+            </button>
+            <button class="btn primary" id="openCreate" data-od-id="create-api-key-button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+              新建 API Key
+            </button>
+          </div>
         </div>
       </div>
-      <div id="usage"></div>
+
+      <div class="table-wrap">
+        <table>
+          <colgroup>
+            <col class="col-key">
+            <col class="col-type">
+            <col class="col-resources">
+            <col class="col-quota">
+            <col class="col-usage">
+            <col class="col-last">
+            <col class="col-status">
+            <col class="col-actions">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>API Key</th>
+              <th>AI 类型</th>
+              <th>关联资源</th>
+              <th>额度使用</th>
+              <th>今日用量</th>
+              <th>最近调用</th>
+              <th>状态</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="keyRows" data-od-id="api-key-table-body"></tbody>
+        </table>
+      </div>
     </section>
   </main>
 
-  <dialog id="keyDialog">
-    <form method="dialog">
-      <div class="dialog-head">
-        <h2>Key</h2>
-        <div class="muted">设置启用状态、额度和绑定范围</div>
+  <div class="drawer-backdrop" id="drawerBackdrop" data-od-id="api-key-editor-backdrop" aria-hidden="true">
+    <section class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle" data-od-id="api-key-editor-drawer">
+      <div class="drawer-head">
+        <div>
+          <h3 id="drawerTitle">新建 API Key</h3>
+          
+        </div>
+        <button class="icon-btn" id="closeDrawer" aria-label="关闭" data-od-id="close-editor-button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+        </button>
       </div>
-      <input name="id" type="hidden">
-      <div class="row">
-        <div><label>名称</label><input name="name" placeholder="例如 Team A"></div>
-        <div><label>状态</label><select name="enabled"><option value="true">启用</option><option value="false">禁用</option></select></div>
-      </div>
-      <div class="row three">
-        <div><label>5 小时 USD 额度</label><input name="five" type="number" step="0.0001"></div>
-        <div><label>7 天 USD 额度</label><input name="weekly" type="number" step="0.0001"></div>
-        <div><label>总 USD 额度</label><input name="total" type="number" step="0.0001"></div>
-      </div>
-      <div>
-        <label>绑定 JSON</label>
-        <textarea name="bindings" class="mono" placeholder='[{"target_type":"group","target_id":"team-a"}]'></textarea>
-      </div>
-      <div class="actions dialog-actions"><button class="primary" id="saveKey">保存</button><button>取消</button></div>
-    </form>
-  </dialog>
 
-  <dialog id="groupDialog">
-    <form method="dialog">
-      <div class="dialog-head">
-        <h2>分组</h2>
-        <div class="muted">把认证文件或供应商实例组织成授权目标</div>
+      <div class="drawer-body">
+        <form id="keyForm" class="form-grid" data-od-id="api-key-form">
+          <div class="field full">
+            <label for="keyName">Key 名称</label>
+            <input id="keyName" required="" placeholder="例如：prod-chat-api">
+            <div id="nameError" class="error" role="alert" aria-hidden="true">请输入 Key 名称。</div>
+          </div>
+
+          <div class="field quota-row-field">
+            <label for="aiType">AI 类型</label>
+            <select id="aiType" required=""></select>
+          </div>
+
+
+          <div class="field quota-row-field">
+            <label for="quotaFiveHourInput">5 小时额度（USD）</label>
+            <input id="quotaFiveHourInput" type="number" min="0" max="50000" step="0.0001" placeholder="留空不限额">
+            <div id="quotaError" class="error" role="alert" aria-hidden="true">已填写的额度必须大于 0 且不超过 $50,000；同时需满足总额度不小于周额度，周额度不小于 5 小时额度。</div>
+          </div>
+
+          <div class="field">
+            <label for="quotaWeekInput">周额度（USD）</label>
+            <input id="quotaWeekInput" type="number" min="0" max="50000" step="0.0001" placeholder="留空不限额">
+          </div>
+
+          <div class="field">
+            <label for="quotaTotalInput">总额度（USD）</label>
+            <input id="quotaTotalInput" type="number" min="0" max="50000" step="0.0001" placeholder="留空不限额">
+          </div>
+
+          <div class="field full">
+            <label>关联资源（可多选）</label>
+            <div class="resource-picker" id="resourcePicker" data-od-id="resource-picker"></div>
+            <div id="resourceError" class="error" role="alert" aria-hidden="true">至少选择一个认证文件或 AI 提供商。</div>
+            <span class="helper" id="dependencyHint">请选择 AI 类型。</span>
+          </div>
+        </form>
       </div>
-      <input name="original_id" type="hidden">
-      <div class="row">
-        <div><label>分组 ID</label><input name="id" placeholder="team-a"></div>
-        <div><label>名称</label><input name="name" placeholder="Team A"></div>
+
+      <div class="drawer-foot">
+        <button class="btn" id="cancelDrawer" data-od-id="cancel-editor-button">取消</button>
+        <button class="btn primary" id="saveKey" data-od-id="save-api-key-button">保存</button>
       </div>
-      <div>
-        <label>描述</label>
-        <textarea name="description" placeholder="可选"></textarea>
+    </section>
+  </div>
+
+  <div class="settings-backdrop" id="settingsBackdrop" data-od-id="management-key-dialog-backdrop" aria-hidden="true">
+    <section class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" data-od-id="management-key-dialog">
+      <div class="drawer-head">
+        <div>
+          <h3 id="settingsTitle">管理设置</h3>
+          <p>输入管理密钥后，可用于后续管理操作校验。</p>
+        </div>
+        <button class="icon-btn" id="closeSettings" aria-label="关闭设置" data-od-id="close-settings-button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+        </button>
       </div>
-      <div>
-        <label>成员 JSON</label>
-        <textarea name="members" class="mono" placeholder='[{"member_type":"provider_instance","member_id":"codex:auth-a"}]'></textarea>
+      <div class="settings-body">
+        <div class="field">
+          <label for="managementKeyInput">管理密钥</label>
+          <input id="managementKeyInput" type="text" autocomplete="off" spellcheck="false" placeholder="输入管理密钥" data-od-id="management-key-input">
+          <p class="settings-helper">当前输入框会显示本页正在使用的管理密钥；保存后只写入当前页面会话。</p>
+          <div id="managementKeyError" class="error" role="alert" aria-hidden="true">请输入管理密钥。</div>
+        </div>
       </div>
-      <div class="actions dialog-actions"><button class="primary" id="saveGroup">保存</button><button>取消</button></div>
-    </form>
-  </dialog>
+      <div class="drawer-foot">
+        <button class="btn" id="cancelSettings" data-od-id="cancel-settings-button">取消</button>
+        <button class="btn primary" id="saveSettings" data-od-id="save-settings-button">保存</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="toast" id="toast" data-od-id="feedback-toast" role="status" aria-live="polite" aria-atomic="true">已复制</div>
 
   <script>
     const api = "/v0/management/plugins/cpa-access-manager";
     const legacySecretStorageKey = "cpa-access-manager.management-key";
+    const sessionSecretStorageKey = "cpa-access-manager.management-key.session";
     const cpaAuthStorageKey = "cli-proxy-auth";
     const cpaSecurePrefix = "enc::v1::";
     const cpaSecureSalt = "cli-proxy-api-webui::secure-storage";
     const $ = (id) => document.getElementById(id);
-    const state = { keys: [], groups: [], prices: [], usage: [] };
+    const state = {
+      keys: [],
+      resources: [],
+      usage: [],
+      activeStatus: "all",
+      editingID: "",
+      pendingDeleteID: ""
+    };
     const session = { apiBase: "", managementKey: "" };
+    let toastTimer = null;
+    let lastFocusedElement = null;
+    const reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const els = {
+      rows: $("keyRows"),
+      search: $("searchInput"),
+      statusFilter: $("statusFilter"),
+      typeFilter: $("typeFilter"),
+      resourceFilter: $("resourceFilter"),
+      drawer: $("drawerBackdrop"),
+      toast: $("toast"),
+      notice: $("notice"),
+      aiType: $("aiType"),
+      picker: $("resourcePicker"),
+      hint: $("dependencyHint"),
+      keyName: $("keyName"),
+      nameError: $("nameError"),
+      quotaFiveHour: $("quotaFiveHourInput"),
+      quotaWeek: $("quotaWeekInput"),
+      quotaTotal: $("quotaTotalInput"),
+      quotaError: $("quotaError"),
+      resourceError: $("resourceError"),
+      settings: $("settingsBackdrop"),
+      managementKey: $("managementKeyInput"),
+      managementKeyError: $("managementKeyError")
+    };
+
     function base() { return session.apiBase || location.origin; }
     function secret() { return session.managementKey; }
     function esc(value) {
       return String(value ?? "").replace(/[&<>"']/g, ch => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[ch]));
     }
-    function field(form, name) { return form.elements.namedItem(name); }
     function asString(value) { return typeof value === "string" ? value.trim() : ""; }
+    function normalize(value) { return String(value ?? "").trim().toLowerCase(); }
+    function uniq(values) { return Array.from(new Set(values.filter(Boolean))); }
+    function maskKeyText(value) {
+      const text = asString(value);
+      if (!text) return "未生成";
+      if (text.includes("*")) return text;
+      if (text.length <= 4) return text;
+      if (text.length <= 8) return `${text.slice(0, 3)}***${text.slice(-2)}`;
+      return `${text.slice(0, 8)}******${text.slice(-4)}`;
+    }
     function parseStoredJSON(value) {
       if (typeof value !== "string") return value;
       try { return JSON.parse(value); } catch { return value; }
@@ -330,8 +1319,7 @@
       if (!raw) return null;
       let text = raw;
       if (raw.startsWith(cpaSecurePrefix)) {
-        const encrypted = base64ToBytes(raw.slice(cpaSecurePrefix.length));
-        text = new TextDecoder().decode(xorBytes(encrypted, cpaSecureKeyBytes()));
+        text = new TextDecoder().decode(xorBytes(base64ToBytes(raw.slice(cpaSecurePrefix.length)), cpaSecureKeyBytes()));
       }
       return parseStoredJSON(text);
     }
@@ -355,180 +1343,597 @@
     }
     function readCPAPanelAuth() {
       if (!isEmbeddedInPanel()) return null;
-      const persisted = readStorageValue(window.localStorage, cpaAuthStorageKey);
-      return extractPanelAuth(persisted);
+      return extractPanelAuth(readStorageValue(window.localStorage, cpaAuthStorageKey));
     }
-    function initSettings() {
-      const panelAuth = readCPAPanelAuth();
-      cleanupLegacySettings();
-      session.apiBase = panelAuth?.apiBase || location.origin;
-      session.managementKey = panelAuth?.managementKey || "";
-      updateAuthStatus();
-    }
-    function cleanupLegacySettings() {
+    function cleanupLegacySecret() {
       try { localStorage.removeItem(legacySecretStorageKey); } catch {}
     }
-    function updateAuthStatus() {
-      const el = $("authStatus");
-      el.textContent = secret() ? "已连接管理后台" : "未连接管理后台";
-      el.classList.toggle("ok", !!secret());
+    function initSession() {
+      const panelAuth = readCPAPanelAuth();
+      const sessionSecret = asString(readStorageValue(window.sessionStorage, sessionSecretStorageKey));
+      cleanupLegacySecret();
+      session.apiBase = panelAuth?.apiBase || location.origin;
+      session.managementKey = sessionSecret || panelAuth?.managementKey || "";
+    }
+    function saveSessionSecret(value) {
+      try { sessionStorage.setItem(sessionSecretStorageKey, value); } catch {}
     }
     async function call(path, opts = {}) {
-      cleanupLegacySettings();
-      const headers = Object.assign({"content-type":"application/json"}, opts.headers || {});
+      cleanupLegacySecret();
+      const headers = Object.assign({ "content-type": "application/json" }, opts.headers || {});
       if (secret()) headers.authorization = "Bearer " + secret();
       const res = await fetch(base() + api + path, Object.assign({}, opts, { headers }));
       const text = await res.text();
-      let data; try { data = JSON.parse(text); } catch { data = text; }
+      let data;
+      try { data = JSON.parse(text); } catch { data = text; }
       if (!res.ok) throw new Error((data && data.error) || text || res.status);
       return data;
     }
-    async function verifyManagementSession() { await call("/status"); }
-    function msg(text, err=false) { $("msg").innerHTML = text ? `<div class="notice ${err?'error':''}">${text}</div>` : ""; }
-    function table(rows, cols, emptyText="暂无数据") {
-      if (!Array.isArray(rows) || !rows.length) return `<div class="empty">${emptyText}</div>`;
-      return `<div class="table-wrap"><table><thead><tr>${cols.map(c=>`<th>${c[0]}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${cols.map(c=>`<td>${c[1](r) ?? ""}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+    async function verifySession() { await call("/status"); }
+
+    function iconSvg(name) {
+      const icons = {
+        copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+        edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
+        power: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2v10"/><path d="M18.4 6.6a9 9 0 1 1-12.8 0"/></svg>',
+        trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 15H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>',
+        alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 8v5"/><path d="M12 17h.01"/><path d="M10.3 3.6h3.4L22 19H2L10.3 3.6Z"/></svg>'
+      };
+      return icons[name] || "";
     }
-    function setMetric(id, value) { $(id).textContent = String(value ?? 0); }
-    function updateMetrics() {
-      setMetric("metricKeys", state.keys.length);
-      setMetric("metricGroups", state.groups.length);
-      setMetric("metricPrices", state.prices.length);
-      setMetric("metricUsage", state.usage.length);
+    function showToast(message) {
+      els.toast.textContent = message;
+      if (toastTimer) window.clearTimeout(toastTimer);
+      els.toast.classList.add("show");
+      toastTimer = window.setTimeout(() => {
+        els.toast.classList.remove("show");
+        toastTimer = null;
+      }, 1800);
     }
-    async function load() {
+    function setNotice(message, isError = false) {
+      if (!message) {
+        els.notice.className = "notice";
+        els.notice.innerHTML = "";
+        return;
+      }
+      els.notice.className = "notice show" + (isError ? " error" : "");
+      els.notice.textContent = message;
+    }
+    async function copyText(text, message) {
       try {
-        msg("");
+        if (navigator.clipboard) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          const input = document.createElement("textarea");
+          input.value = text;
+          document.body.appendChild(input);
+          input.select();
+          document.execCommand("copy");
+          input.remove();
+        }
+        showToast(message);
+      } catch {
+        showToast("复制失败，请手动复制");
+      }
+    }
+
+    function normalizeResource(item) {
+      const type = normalize(item.type);
+      if (type !== "auth_file" && type !== "provider_instance") return null;
+      const id = asString(item.id || item.auth_id || item.auth_index || item.name);
+      if (!id) return null;
+      const provider = normalize(item.provider);
+      const authID = asString(item.auth_id || (type === "auth_file" ? id : ""));
+      const label = asString(item.label || item.name || item.email || item.auth_id || item.id) || id;
+      const kind = type === "auth_file" ? "认证文件" : "AI 提供商";
+      const bindingType = type === "auth_file" ? "auth_id" : "provider_instance";
+      const bindingID = type === "auth_file" ? (authID || id) : id;
+      const meta = [kind, item.email || item.auth_id || item.auth_index || item.base_url].filter(Boolean).join(" · ");
+      return { raw: item, id, type, provider, authID, label, kind, bindingType, bindingID, meta };
+    }
+    function resourceClass(ref) { return ref.kind === "file" ? "mark-file" : "mark-provider"; }
+    function resourceChips(resources) {
+      return resources.length
+        ? resources.map(ref => `<span class="resource ${resourceClass(ref)}">${esc(ref.label)}</span>`).join("")
+        : `<span class="muted">未关联资源</span>`;
+    }
+    function providers() {
+      return uniq(state.resources.map(r => r.provider));
+    }
+    function typeLabel(provider) { return provider ? provider : "未识别"; }
+    function fillTypeOptions(select, includeAll = false, current = "") {
+      const list = providers();
+      const safeCurrent = normalize(current);
+      let options = includeAll ? `<option value="all">全部 AI 类型</option>` : "";
+      options += list.map(p => `<option value="${esc(p)}">${esc(typeLabel(p))}</option>`).join("");
+      if (!includeAll && !list.length) options = `<option value="">暂无可用 AI 类型</option>`;
+      if (!includeAll && safeCurrent && !list.includes(safeCurrent)) options += `<option value="${esc(safeCurrent)}">${esc(typeLabel(safeCurrent))}</option>`;
+      select.innerHTML = options;
+      select.value = includeAll ? (safeCurrent || "all") : (safeCurrent || list[0] || "");
+    }
+    function authFileByID(id) {
+      const target = asString(id);
+      return state.resources.find(r => r.type === "auth_file" && (r.id === target || r.authID === target || r.bindingID === target));
+    }
+    function providerInstanceByID(id) {
+      const target = asString(id);
+      return state.resources.find(r => r.type === "provider_instance" && r.id === target);
+    }
+    function keyResourceRefs(key) {
+      return (key.bindings || []).map(binding => {
+        const typ = normalize(binding.target_type);
+        if (typ === "provider_instance") {
+          const r = providerInstanceByID(binding.target_id);
+          return r ? { kind: "provider", id: r.bindingID, label: r.label, provider: r.provider, bindingType: r.bindingType } : { kind: "provider", id: binding.target_id, label: binding.target_id, provider: "", bindingType: "provider_instance" };
+        }
+        if (typ === "auth_id" || typ === "auth_file") {
+          const r = authFileByID(binding.target_id);
+          return r ? { kind: "file", id: r.bindingID, label: r.label, provider: r.provider, bindingType: "auth_id" } : { kind: "file", id: binding.target_id, label: binding.target_id, provider: "", bindingType: "auth_id" };
+        }
+        return null;
+      }).filter(Boolean);
+    }
+    function keyProvider(key) {
+      const values = uniq(keyResourceRefs(key).map(r => r.provider));
+      if (values.length > 1) return "mixed";
+      return values[0] || "";
+    }
+    function selectedResourceRefs() {
+      return Array.from(els.picker.querySelectorAll("input[type='checkbox']:checked")).map(input => ({
+        kind: input.dataset.kind,
+        id: input.value,
+        provider: input.dataset.provider,
+        label: input.dataset.label,
+        bindingType: input.dataset.bindingType
+      }));
+    }
+    function validateSingleProvider(refs) {
+      const values = uniq(refs.map(ref => ref.provider));
+      return values.length === 1 && !!values[0];
+    }
+
+    function quotaPercent(used, quota) {
+      if (!quota || Number(quota) <= 0) return 0;
+      return Math.min(100, Math.round(Number(used || 0) / Number(quota) * 100));
+    }
+    function barColor(percent) {
+      if (percent >= 85) return "#f79009";
+      return "var(--primary)";
+    }
+    function formatQuotaUsd(value) {
+      const amount = Number(value) || 0;
+      if (amount > 0 && amount < 1) return `$${amount.toLocaleString("en-US", { maximumFractionDigits: 4 })}`;
+      if (amount >= 10000) return `$${(amount / 1000).toLocaleString("en-US", { maximumFractionDigits: 1 })}k`;
+      return `$${amount.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+    }
+    function quotaMetric(label, used, quota) {
+      if (quota === null || quota === undefined || quota === "") return "";
+      const percent = quotaPercent(used, quota);
+      return `
+        <div class="quota-item">
+          <div class="quota-line">
+            <span><b class="quota-label">${label}</b>${formatQuotaUsd(used)} / ${formatQuotaUsd(quota)}</span>
+            <strong>${percent}%</strong>
+          </div>
+          <div class="bar"><span style="--value:${percent}%;--bar-color:${barColor(percent)}"></span></div>
+        </div>
+      `;
+    }
+    function quotaBlock(key) {
+      const limits = key.limits || {};
+      const usage = key.usage || {};
+      const html = [
+        quotaMetric("5 小时", usage.five_hour_usd, limits.five_hour_limit_usd),
+        quotaMetric("周额度", usage.weekly_usd, limits.weekly_limit_usd),
+        quotaMetric("总额度", usage.total_usd, limits.total_limit_usd)
+      ].filter(Boolean).join("");
+      return html || `<span class="quota-empty">未配置额度</span>`;
+    }
+    function formatTokens(value) {
+      const count = Number(value) || 0;
+      if (count >= 1000000) return `${(count / 1000000).toLocaleString("en-US", { maximumFractionDigits: 2 })}M`;
+      if (count >= 1000) return `${(count / 1000).toLocaleString("en-US", { maximumFractionDigits: 1 })}K`;
+      return count.toLocaleString("en-US");
+    }
+    function formatUsd(value) {
+      const amount = Number(value) || 0;
+      return `US$${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`;
+    }
+    function usageDetail(entry) { return entry.detail || {}; }
+    function entryTokens(entry) {
+      const detail = usageDetail(entry);
+      return Number(detail.total_tokens || 0)
+        || Number(detail.input_tokens || 0) + Number(detail.output_tokens || 0) + Number(detail.reasoning_tokens || 0) + Number(detail.cached_tokens || 0);
+    }
+    function isToday(value) {
+      if (!value) return false;
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return false;
+      const now = new Date();
+      return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth() && date.getDate() === now.getDate();
+    }
+    function todayUsageByKey() {
+      const out = new Map();
+      state.usage.forEach(entry => {
+        if (!isToday(entry.created_at)) return;
+        const id = entry.key_id || "";
+        const item = out.get(id) || { requests: 0, tokens: 0, costUsd: 0 };
+        item.requests += 1;
+        item.tokens += entryTokens(entry);
+        item.costUsd += Number(entry.usd || 0);
+        out.set(id, item);
+      });
+      return out;
+    }
+    function usageStat(item) {
+      return `
+        <div class="usage-stat">
+          <div class="usage-line"><span>请求:</span><strong>${(item.requests || 0).toLocaleString()}</strong></div>
+          <div class="usage-line"><span>Token:</span><strong>${formatTokens(item.tokens)}</strong></div>
+          <div class="usage-line cost"><span>账号计费:</span><strong>${formatUsd(item.costUsd)}</strong></div>
+        </div>
+      `;
+    }
+    function keyStatus(key) {
+      if (!key.enabled) return { id: "disabled", text: "停用", className: "neutral" };
+      const limits = key.limits || {};
+      const usage = key.usage || {};
+      const pairs = [
+        [usage.five_hour_usd, limits.five_hour_limit_usd],
+        [usage.weekly_usd, limits.weekly_limit_usd],
+        [usage.total_usd, limits.total_limit_usd]
+      ];
+      if (pairs.some(([used, limit]) => limit !== null && limit !== undefined && Number(limit) > 0 && Number(used || 0) / Number(limit) >= 0.85)) {
+        return { id: "warning", text: "额度预警", className: "warn" };
+      }
+      return { id: "active", text: "启用", className: "success" };
+    }
+    function lastUsedText(value) {
+      if (!value) return "从未调用";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return String(value);
+      return date.toLocaleString();
+    }
+
+    async function load(refreshResources = false) {
+      try {
         if (!secret()) {
-          msg("没有找到可复用的管理登录。请从 CPA 管理后台的插件页面打开，且管理后台需要勾选记住密码。", true);
+          setNotice("没有找到可复用的 CPA 管理登录。请从 CPA 管理后台的插件页面打开，并确保管理后台已保存登录状态。", true);
           return;
         }
-        await verifyManagementSession();
-        const [keys, groups, prices, usage] = await Promise.all([
-          call("/keys"), call("/groups"), call("/prices"), call("/usage?limit=50")
+        setNotice("");
+        await verifySession();
+        const resourcesPromise = refreshResources
+          ? call("/inventory", { method: "POST", body: JSON.stringify({ refresh: true }) })
+          : call("/inventory");
+        let [keys, resources, usage] = await Promise.all([
+          call("/keys"),
+          resourcesPromise,
+          call("/usage?limit=200")
         ]);
-        Object.assign(state, { keys, groups, prices, usage });
-        render();
-      } catch (e) { msg(e.message, true); }
+        const hasProviderInstance = Array.isArray(resources) && resources.some(item => normalize(item?.type) === "provider_instance");
+        if (!Array.isArray(resources) || resources.length === 0 || !hasProviderInstance) {
+          try { resources = await call("/inventory", { method: "POST", body: JSON.stringify({ refresh: true }) }); } catch {}
+        }
+        state.keys = Array.isArray(keys) ? keys : [];
+        state.resources = Array.isArray(resources) ? resources.map(normalizeResource).filter(Boolean) : [];
+        state.usage = Array.isArray(usage) ? usage : [];
+        renderAll();
+      } catch (e) {
+        setNotice(e.message, true);
+      }
     }
-    function render() {
-      updateMetrics();
-      $("keys").innerHTML = table(state.keys, [
-        ["Key", r=>`<span class="mono">${esc(r.id)}</span><br><span class="muted">${esc(r.name||"")}</span>`],
-        ["状态", r=>`<span class="badge ${r.enabled ? "on" : "off"}">${r.enabled ? "启用" : "禁用"}</span>`],
-        ["额度", r=>`<div class="quota-grid"><span>5h ${Number(r.usage?.five_hour_usd||0).toFixed(4)} / ${esc(r.limits?.five_hour_limit_usd ?? "-")}</span><span>7d ${Number(r.usage?.weekly_usd||0).toFixed(4)} / ${esc(r.limits?.weekly_limit_usd ?? "-")}</span><span>总 ${Number(r.usage?.total_usd||0).toFixed(4)} / ${esc(r.limits?.total_limit_usd ?? "-")}</span></div>`],
-        ["绑定", r=>`<div class="binding-list">${(r.bindings||[]).map(b=>`<span class="badge">${esc(b.target_type)}:${esc(b.target_id)}</span>`).join("") || "<span class='muted'>未绑定</span>"}</div>`],
-        ["操作", r=>`<div class="actions"><button data-key-edit="${esc(r.id)}">编辑</button><button data-key-rotate="${esc(r.id)}">轮换</button><button class="danger" data-key-delete="${esc(r.id)}">删除</button></div>`]
-      ]);
-      $("groups").innerHTML = table(state.groups, [
-        ["分组", r=>`<span class="mono">${esc(r.id)}</span><br><span>${esc(r.name||"")}</span>`],
-        ["描述", r=>esc(r.description||"") || "<span class='muted'>无</span>"],
-        ["成员", r=>`<div class="binding-list">${(r.members||[]).map(m=>`<span class="badge">${esc(m.member_type)}:${esc(m.member_id)}</span>`).join("") || "<span class='muted'>无成员</span>"}</div>`],
-        ["操作", r=>`<div class="actions"><button data-group-edit="${esc(r.id)}">编辑</button><button class="danger" data-group-delete="${esc(r.id)}">删除</button></div>`]
-      ]);
-      $("pricesText").value = JSON.stringify(state.prices, null, 2);
-      $("usage").innerHTML = table(state.usage, [
-        ["时间", r=>esc(new Date(r.created_at).toLocaleString())],
-        ["Key", r=>`<span class="mono">${esc(r.key_id)}</span>`],
-        ["Provider", r=>esc(r.provider)],
-        ["Model", r=>esc(r.model)],
-        ["USD", r=>`<span class="mono">${Number(r.usd||0).toFixed(6)}</span>`]
-      ]);
-      bindTableActions();
+    function renderAll() {
+      renderFilters();
+      renderRows();
     }
-    function activateTab(name) {
-      document.querySelectorAll("[data-tab]").forEach(btn => btn.classList.toggle("active", btn.dataset.tab === name));
-      document.querySelectorAll(".tab-panel").forEach(panel => panel.hidden = panel.id !== "tab-" + name);
+    function renderFilters() {
+      const typeValue = els.typeFilter.value || "all";
+      fillTypeOptions(els.typeFilter, true, typeValue === "all" ? "" : typeValue);
+      renderResourceFilter();
     }
-    document.querySelectorAll("[data-tab]").forEach(btn => btn.onclick = () => activateTab(btn.dataset.tab));
-    $("reload").onclick = load;
-    $("savePrices").onclick = async () => { try { await call("/prices", { method:"PUT", body: $("pricesText").value }); await load(); } catch(e) { msg(e.message, true); } };
-    $("newKey").onclick = () => openKeyDialog();
-    $("newGroup").onclick = () => openGroupDialog();
-    function openKeyDialog(key) {
-      const f = $("keyDialog").querySelector("form");
-      f.reset();
-      field(f, "id").value = key?.id || "";
-      field(f, "name").value = key?.name || "";
-      field(f, "enabled").value = key?.enabled === false ? "false" : "true";
-      field(f, "five").value = key?.limits?.five_hour_limit_usd || "";
-      field(f, "weekly").value = key?.limits?.weekly_limit_usd || "";
-      field(f, "total").value = key?.limits?.total_limit_usd || "";
-      field(f, "bindings").value = JSON.stringify(key?.bindings || [], null, 2);
-      $("keyDialog").showModal();
+    function renderResourceFilter() {
+      const current = els.resourceFilter.value || "all";
+      const refs = state.resources.map(r => ({ key: `${r.type}:${r.bindingID}`, label: r.label }));
+      const unique = [];
+      const seen = new Set();
+      refs.forEach(ref => {
+        if (!seen.has(ref.key)) {
+          seen.add(ref.key);
+          unique.push(ref);
+        }
+      });
+      els.resourceFilter.innerHTML = `<option value="all">全部关联资源</option>` + unique.map(ref => `<option value="${esc(ref.key)}">${esc(ref.label)}</option>`).join("");
+      els.resourceFilter.value = unique.some(ref => ref.key === current) ? current : "all";
     }
-    function openGroupDialog(group) {
-      const f = $("groupDialog").querySelector("form");
-      f.reset();
-      field(f, "original_id").value = group?.id || "";
-      field(f, "id").value = group?.id || "";
-      field(f, "name").value = group?.name || "";
-      field(f, "description").value = group?.description || "";
-      field(f, "members").value = JSON.stringify(group?.members || [], null, 2);
-      $("groupDialog").showModal();
+    function renderRows() {
+      const term = normalize(els.search.value);
+      const type = normalize(els.typeFilter.value === "all" ? "" : els.typeFilter.value);
+      const resource = els.resourceFilter.value;
+      const usageMap = todayUsageByKey();
+      const filtered = state.keys.filter(key => {
+        const refs = keyResourceRefs(key);
+        const provider = keyProvider(key);
+        const status = keyStatus(key);
+        const haystack = normalize([key.name, key.id, key.key_prefix, provider, refs.map(r => r.label).join(" ")].join(" "));
+        const matchesResource = resource === "all" || refs.some(ref => {
+          const prefix = ref.bindingType === "provider_instance" ? "provider_instance" : "auth_file";
+          return `${prefix}:${ref.id}` === resource;
+        });
+        return (state.activeStatus === "all" || status.id === state.activeStatus)
+          && (!type || provider === type)
+          && matchesResource
+          && haystack.includes(term);
+      });
+
+      els.rows.innerHTML = filtered.map((key, filteredIndex) => {
+        const status = keyStatus(key);
+        const provider = keyProvider(key);
+        const refs = keyResourceRefs(key);
+        const usage = usageMap.get(key.id) || { requests: 0, tokens: 0, costUsd: 0 };
+        const token = maskKeyText(key.key_prefix || key.id);
+        const deletePending = state.pendingDeleteID === key.id;
+        return `
+          <tr class="key-table-row" data-od-id="api-key-row-${filteredIndex + 1}">
+            <td class="identity-cell">
+              <div class="key-cell">
+                <div>
+                  <div class="key-name"><span>${esc(key.name || "未命名 Key")}</span></div>
+                  <div class="key-token">${esc(token)}</div>
+                </div>
+              </div>
+            </td>
+            <td class="type-cell"><span class="pill neutral">${esc(typeLabel(provider))}</span></td>
+            <td class="resources-cell"><div class="meta-stack"><div class="resources">${resourceChips(refs)}</div></div></td>
+            <td class="quota-cell"><div class="quota">${quotaBlock(key)}</div></td>
+            <td class="usage-cell" data-od-id="api-key-usage-${filteredIndex + 1}">${usageStat(usage)}</td>
+            <td class="last-cell">${esc(lastUsedText(key.last_used_at))}</td>
+            <td class="status-cell"><span class="pill ${status.className}"><span class="dot"></span>${esc(status.text)}</span></td>
+            <td class="actions-cell">
+              <div class="row-actions">
+                <button class="icon-btn" title="复制" data-action="copy" data-id="${esc(key.id)}">${iconSvg("copy")}</button>
+                <button class="icon-btn" title="编辑" data-action="edit" data-id="${esc(key.id)}">${iconSvg("edit")}</button>
+                <button class="icon-btn" title="启停" data-action="toggle" data-id="${esc(key.id)}">${iconSvg("power")}</button>
+                <button class="icon-btn danger ${deletePending ? "confirming" : ""}" title="${deletePending ? "确认删除" : "删除"}" data-action="delete" data-id="${esc(key.id)}">${iconSvg(deletePending ? "alert" : "trash")}</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join("");
+
+      if (!filtered.length) {
+        els.rows.innerHTML = `<tr class="empty-row"><td colspan="8">没有匹配的 API Key</td></tr>`;
+      }
     }
-    function bindTableActions() {
-      document.querySelectorAll("[data-key-edit]").forEach(btn => btn.onclick = () => openKeyDialog(state.keys.find(k => k.id === btn.dataset.keyEdit)));
-      document.querySelectorAll("[data-key-rotate]").forEach(btn => btn.onclick = () => rotateKey(btn.dataset.keyRotate));
-      document.querySelectorAll("[data-key-delete]").forEach(btn => btn.onclick = () => deleteKey(btn.dataset.keyDelete));
-      document.querySelectorAll("[data-group-edit]").forEach(btn => btn.onclick = () => openGroupDialog(state.groups.find(g => g.id === btn.dataset.groupEdit)));
-      document.querySelectorAll("[data-group-delete]").forEach(btn => btn.onclick = () => deleteGroup(btn.dataset.groupDelete));
+
+    function parseOptionalQuota(input) {
+      const raw = input.value.trim();
+      if (!raw) return null;
+      const value = Number(raw);
+      return Number.isFinite(value) ? value : NaN;
     }
-    $("saveKey").onclick = async (ev) => {
-      ev.preventDefault();
-      const f = $("keyDialog").querySelector("form");
-      const bindingsRaw = field(f, "bindings").value.trim();
+    function quotaInputValue(value) {
+      return value === null || value === undefined ? "" : value;
+    }
+    function quotaValid(five, week, total) {
+      const values = [five, week, total].filter(value => value !== null);
+      return values.every(value => Number.isFinite(value) && value > 0 && value <= 50000)
+        && (five === null || week === null || five <= week)
+        && (week === null || total === null || week <= total)
+        && (five === null || total === null || five <= total);
+    }
+    function setError(element, visible) {
+      element.classList.toggle("show", visible);
+      element.setAttribute("aria-hidden", visible ? "false" : "true");
+    }
+    function pickerOption(ref, selectedKeys) {
+      const key = `${ref.kind}:${ref.id}`;
+      return `
+        <label class="resource-option">
+          <input type="checkbox" value="${esc(ref.id)}" data-kind="${esc(ref.kind)}" data-provider="${esc(ref.provider)}" data-binding-type="${esc(ref.bindingType)}" data-label="${esc(ref.label)}" ${selectedKeys.has(key) ? "checked" : ""}>
+          <span>
+            <strong>${esc(ref.label)}</strong>
+            <small>${esc(ref.kind === "file" ? "认证文件" : "AI 提供商")}</small>
+          </span>
+        </label>
+      `;
+    }
+    function renderPicker(selectedRefs = []) {
+      const provider = normalize(els.aiType.value);
+      const selectedKeys = new Set(selectedRefs.map(ref => `${ref.kind}:${ref.id}`));
+      const authRefs = state.resources.filter(r => r.type === "auth_file" && r.provider === provider).map(r => ({ kind: "file", id: r.bindingID, provider: r.provider, label: r.label, bindingType: "auth_id" }));
+      const providerRefs = state.resources.filter(r => r.type === "provider_instance" && r.provider === provider).map(r => ({ kind: "provider", id: r.bindingID, provider: r.provider, label: r.label, bindingType: "provider_instance" }));
+      const refs = providerRefs.concat(authRefs);
+      els.picker.innerHTML = refs.length
+        ? refs.map(ref => pickerOption(ref, selectedKeys)).join("")
+        : `<div class="resource-option is-empty"><span><strong>暂无可选资源</strong><small>刷新后仍为空时，请先在 CPA 中配置对应认证文件或 AI 提供商。</small></span></div>`;
+      els.hint.textContent = provider ? `当前选择 ${provider}，只展示 ${provider} 类型下的资源。` : "请先选择 AI 类型。";
+    }
+    function openDrawer(key = null) {
+      lastFocusedElement = document.activeElement;
+      state.editingID = key?.id || "";
+      $("drawerTitle").textContent = key ? "编辑 API Key" : "新建 API Key";
+      els.keyName.value = key?.name || "";
+      els.quotaFiveHour.value = quotaInputValue(key?.limits?.five_hour_limit_usd);
+      els.quotaWeek.value = quotaInputValue(key?.limits?.weekly_limit_usd);
+      els.quotaTotal.value = quotaInputValue(key?.limits?.total_limit_usd);
+      setError(els.nameError, false);
+      setError(els.quotaError, false);
+      setError(els.resourceError, false);
+      const selected = key ? keyResourceRefs(key) : [];
+      fillTypeOptions(els.aiType, false, key ? keyProvider(key) : "");
+      renderPicker(selected);
+      els.drawer.classList.add("open");
+      els.drawer.setAttribute("aria-hidden", "false");
+      document.body.classList.add("drawer-active");
+      window.setTimeout(() => els.keyName.focus({ preventScroll: true }), reducedMotion ? 0 : 180);
+    }
+    function closeDrawer() {
+      if (!els.drawer.classList.contains("open")) return;
+      els.drawer.classList.remove("open");
+      els.drawer.setAttribute("aria-hidden", "true");
+      document.body.classList.remove("drawer-active");
+      const focusTarget = lastFocusedElement;
+      if (focusTarget && focusTarget.isConnected && typeof focusTarget.focus === "function") {
+        window.setTimeout(() => focusTarget.focus({ preventScroll: true }), reducedMotion ? 0 : 160);
+      }
+    }
+    function openSettings() {
+      lastFocusedElement = document.activeElement;
+      els.managementKey.value = secret();
+      setError(els.managementKeyError, false);
+      els.settings.classList.add("open");
+      els.settings.setAttribute("aria-hidden", "false");
+      document.body.classList.add("settings-active");
+      window.setTimeout(() => els.managementKey.focus({ preventScroll: true }), reducedMotion ? 0 : 160);
+    }
+    function closeSettings() {
+      if (!els.settings.classList.contains("open")) return;
+      els.settings.classList.remove("open");
+      els.settings.setAttribute("aria-hidden", "true");
+      document.body.classList.remove("settings-active");
+      const focusTarget = lastFocusedElement;
+      if (focusTarget && focusTarget.isConnected && typeof focusTarget.focus === "function") {
+        window.setTimeout(() => focusTarget.focus({ preventScroll: true }), reducedMotion ? 0 : 140);
+      }
+    }
+    async function saveSettings() {
+      const value = els.managementKey.value.trim();
+      if (!value) {
+        setError(els.managementKeyError, true);
+        return;
+      }
+      setError(els.managementKeyError, false);
+      session.managementKey = value;
+      saveSessionSecret(value);
+      closeSettings();
+      showToast("管理密钥已保存");
+      await load(false);
+    }
+    async function saveKey() {
+      const name = els.keyName.value.trim();
+      const five = parseOptionalQuota(els.quotaFiveHour);
+      const week = parseOptionalQuota(els.quotaWeek);
+      const total = parseOptionalQuota(els.quotaTotal);
+      const refs = selectedResourceRefs();
+      const nameOK = !!name;
+      const quotaOK = quotaValid(five, week, total);
+      const refsOK = refs.length > 0 && validateSingleProvider(refs);
+      setError(els.nameError, !nameOK);
+      setError(els.quotaError, !quotaOK);
+      setError(els.resourceError, !refsOK);
+      if (!nameOK || !quotaOK || !refsOK) return;
       const payload = {
-        name: field(f, "name").value,
-        enabled: field(f, "enabled").value === "true",
-        five_hour_limit_usd: field(f, "five").value ? Number(field(f, "five").value) : null,
-        weekly_limit_usd: field(f, "weekly").value ? Number(field(f, "weekly").value) : null,
-        total_limit_usd: field(f, "total").value ? Number(field(f, "total").value) : null,
-        bindings: bindingsRaw ? JSON.parse(bindingsRaw) : []
+        name,
+        enabled: state.editingID ? undefined : true,
+        five_hour_limit_usd: five,
+        weekly_limit_usd: week,
+        total_limit_usd: total,
+        bindings: refs.map(ref => ({ target_type: ref.bindingType, target_id: ref.id }))
       };
+      if (state.editingID) delete payload.enabled;
       try {
-        const id = field(f, "id").value.trim();
-        const out = id
-          ? await call("/keys?id=" + encodeURIComponent(id), { method:"PATCH", body: JSON.stringify(payload) })
-          : await call("/keys", { method:"POST", body: JSON.stringify(payload) });
-        $("keyDialog").close();
-        if (out.plain_key) msg("新 Key 只显示一次：\n" + out.plain_key);
-        await load();
-      } catch(e) { msg(e.message, true); }
-    };
-    $("saveGroup").onclick = async (ev) => {
-      ev.preventDefault();
-      const f = $("groupDialog").querySelector("form");
-      const id = field(f, "original_id").value.trim();
-      const payload = {
-        id: field(f, "id").value.trim(),
-        name: field(f, "name").value.trim(),
-        description: field(f, "description").value.trim(),
-        members: field(f, "members").value.trim() ? JSON.parse(field(f, "members").value) : []
-      };
+        if (state.editingID) {
+          await call("/keys?id=" + encodeURIComponent(state.editingID), { method: "PATCH", body: JSON.stringify(payload) });
+        } else {
+          await call("/keys", { method: "POST", body: JSON.stringify(payload) });
+        }
+        closeDrawer();
+        await load(false);
+        setNotice("");
+        showToast(state.editingID ? "API Key 已保存" : "API Key 已创建");
+      } catch (e) {
+        setNotice(e.message, true);
+      }
+    }
+    async function toggleKey(id) {
+      const key = state.keys.find(item => item.id === id);
+      if (!key) return;
       try {
-        await call(id ? "/groups?id=" + encodeURIComponent(id) : "/groups", { method: id ? "PATCH" : "POST", body: JSON.stringify(payload) });
-        $("groupDialog").close();
-        await load();
-      } catch(e) { msg(e.message, true); }
-    };
-    async function rotateKey(id) {
-      try {
-        const out = await call("/keys/rotate?id=" + encodeURIComponent(id), { method:"POST" });
-        msg("新 Key 只显示一次：\n" + out.plain_key);
-        await load();
-      } catch(e) { msg(e.message, true); }
+        await call("/keys?id=" + encodeURIComponent(id), { method: "PATCH", body: JSON.stringify({ enabled: !key.enabled }) });
+        await load(false);
+        showToast(key.enabled ? "API Key 已停用" : "API Key 已启用");
+      } catch (e) {
+        setNotice(e.message, true);
+      }
     }
     async function deleteKey(id) {
-      if (!confirm("删除这个 Key？")) return;
-      try { await call("/keys?id=" + encodeURIComponent(id), { method:"DELETE" }); await load(); } catch(e) { msg(e.message, true); }
+      if (state.pendingDeleteID !== id) {
+        state.pendingDeleteID = id;
+        renderRows();
+        showToast("再次点击感叹号确认删除");
+        return;
+      }
+      try {
+        await call("/keys?id=" + encodeURIComponent(id), { method: "DELETE" });
+        state.pendingDeleteID = "";
+        await load(false);
+        showToast("API Key 已删除");
+      } catch (e) {
+        setNotice(e.message, true);
+      }
     }
-    async function deleteGroup(id) {
-      if (!confirm("删除这个分组？")) return;
-      try { await call("/groups?id=" + encodeURIComponent(id), { method:"DELETE" }); await load(); } catch(e) { msg(e.message, true); }
-    }
-    initSettings();
-    if (secret()) load();
+
+    els.search.addEventListener("input", () => { state.pendingDeleteID = ""; renderRows(); });
+    els.statusFilter.addEventListener("change", () => {
+      state.activeStatus = els.statusFilter.value;
+      state.pendingDeleteID = "";
+      renderRows();
+    });
+    els.typeFilter.addEventListener("change", () => { state.pendingDeleteID = ""; renderRows(); });
+    els.resourceFilter.addEventListener("change", () => { state.pendingDeleteID = ""; renderRows(); });
+    els.aiType.addEventListener("change", () => {
+      renderPicker([]);
+      setError(els.resourceError, false);
+    });
+    $("openCreate").addEventListener("click", () => openDrawer());
+    $("openSettings").addEventListener("click", openSettings);
+    $("closeDrawer").addEventListener("click", closeDrawer);
+    $("cancelDrawer").addEventListener("click", closeDrawer);
+    $("closeSettings").addEventListener("click", closeSettings);
+    $("cancelSettings").addEventListener("click", closeSettings);
+    $("saveSettings").addEventListener("click", saveSettings);
+    $("saveKey").addEventListener("click", saveKey);
+    els.drawer.addEventListener("click", event => {
+      if (event.target === els.drawer) closeDrawer();
+    });
+    els.settings.addEventListener("click", event => {
+      if (event.target === els.settings) closeSettings();
+    });
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape" && els.settings.classList.contains("open")) closeSettings();
+      if (event.key === "Escape" && els.drawer.classList.contains("open")) closeDrawer();
+    });
+    els.rows.addEventListener("click", event => {
+      const button = event.target.closest("button");
+      if (!button) return;
+      const id = button.dataset.id;
+      const key = state.keys.find(item => item.id === id);
+      if (button.dataset.action === "copy") {
+        copyText(maskKeyText(key?.key_prefix || id), "已复制脱敏文本");
+        state.pendingDeleteID = "";
+        renderRows();
+      }
+      if (button.dataset.action === "edit") {
+        state.pendingDeleteID = "";
+        renderRows();
+        openDrawer(key);
+      }
+      if (button.dataset.action === "toggle") {
+        state.pendingDeleteID = "";
+        toggleKey(id);
+      }
+      if (button.dataset.action === "delete") deleteKey(id);
+    });
+    $("refreshBtn").addEventListener("click", async () => {
+      await load(true);
+      showToast("列表已刷新");
+    });
+
+    initSession();
+    if (secret()) load(false);
+    else setNotice("没有找到可复用的 CPA 管理登录。请从 CPA 管理后台的插件页面打开。", true);
   </script>
-</body>
-</html>
+
+
+</body></html>

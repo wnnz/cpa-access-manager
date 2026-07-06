@@ -161,17 +161,21 @@ type SchedulerPickResponse struct {
 }
 
 type UsageHandleRequest struct {
-	Provider     string        `json:"Provider"`
-	ExecutorType string        `json:"ExecutorType"`
-	Model        string        `json:"Model"`
-	Alias        string        `json:"Alias"`
-	APIKey       string        `json:"APIKey"`
-	AuthID       string        `json:"AuthID"`
-	AuthIndex    string        `json:"AuthIndex"`
-	AuthType     string        `json:"AuthType"`
-	Source       string        `json:"Source"`
-	Failed       bool          `json:"Failed"`
-	Detail       UsageDetailIn `json:"Detail"`
+	Provider     string         `json:"Provider"`
+	ExecutorType string         `json:"ExecutorType"`
+	Model        string         `json:"Model"`
+	Alias        string         `json:"Alias"`
+	KeyID        string         `json:"KeyID"`
+	KeyIDSnake   string         `json:"key_id"`
+	Principal    string         `json:"Principal"`
+	APIKey       string         `json:"APIKey"`
+	AuthID       string         `json:"AuthID"`
+	AuthIndex    string         `json:"AuthIndex"`
+	AuthType     string         `json:"AuthType"`
+	Source       string         `json:"Source"`
+	Failed       bool           `json:"Failed"`
+	Metadata     map[string]any `json:"Metadata"`
+	Detail       UsageDetailIn  `json:"Detail"`
 }
 
 type UsageDetailIn struct {

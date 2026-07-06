@@ -456,7 +456,7 @@ func (s *Store) applyTarget(ctx context.Context, scope *Scope, targetType, targe
 				return err
 			}
 		}
-	case BindingAuthID:
+	case BindingAuthID, InventoryAuthFile:
 		scope.AuthIDs[targetID] = struct{}{}
 		if item, ok := s.inventoryByType(ctx, InventoryAuthFile, targetID); ok {
 			addProvider(scope, item.Provider)
@@ -554,6 +554,7 @@ func (sc Scope) AllowsCandidate(candidate Candidate) bool {
 }
 
 func (s *Store) UpsertAuthFiles(ctx context.Context, entries []HostAuthFileEntry) error {
+	authIDs := make([]string, 0, len(entries))
 	for _, entry := range entries {
 		id := strings.TrimSpace(entry.ID)
 		if id == "" {
@@ -584,16 +585,28 @@ func (s *Store) UpsertAuthFiles(ctx context.Context, entries []HostAuthFileEntry
 		if err := s.UpsertInventoryItem(ctx, item); err != nil {
 			return err
 		}
-		if provider != "" {
-			instance := item
-			instance.ID = ProviderInstanceID(provider, item.AuthID, item.AuthIndex, "")
-			instance.Type = InventoryProviderInstance
-			if err := s.UpsertInventoryItem(ctx, instance); err != nil {
-				return err
-			}
-		}
+		authIDs = append(authIDs, item.AuthID)
 	}
-	return nil
+	return s.deleteAuthFileProviderInstances(ctx, authIDs)
+}
+
+func (s *Store) deleteAuthFileProviderInstances(ctx context.Context, authIDs []string) error {
+	authIDs = uniqueNonEmpty(authIDs)
+	if len(authIDs) == 0 {
+		return nil
+	}
+	placeholders := strings.TrimRight(strings.Repeat("?,", len(authIDs)), ",")
+	args := make([]any, 0, len(authIDs)+1)
+	args = append(args, InventoryProviderInstance)
+	for _, authID := range authIDs {
+		args = append(args, authID)
+	}
+	_, err := s.db.ExecContext(ctx, `DELETE FROM inventory_items
+		WHERE type = ?
+		  AND COALESCE(base_url, '') = ''
+		  AND COALESCE(auth_id, '') IN (`+placeholders+`)
+		  AND id = provider || ':' || auth_id`, args...)
+	return err
 }
 
 func (s *Store) UpsertProviderCandidates(ctx context.Context, candidates []Candidate) error {
@@ -747,7 +760,7 @@ func (s *Store) RecordUsage(ctx context.Context, entry UsageEntry) (UsageEntry, 
 	}
 	rule, err := s.PriceRule(ctx, entry.Provider, entry.Model)
 	if err != nil {
-		if !s.allowUnpriced {
+		if !errors.Is(err, ErrMissingPriceRule) {
 			return UsageEntry{}, err
 		}
 	} else {
@@ -1011,11 +1024,22 @@ func newPlainKey() (plain string, hash string, prefix string, err error) {
 	}
 	plain = "cam_" + base64.RawURLEncoding.EncodeToString(buf)
 	hash = hashToken(plain)
-	prefix = plain
-	if len(prefix) > 12 {
-		prefix = prefix[:12]
-	}
+	prefix = maskToken(plain)
 	return plain, hash, prefix, nil
+}
+
+func maskToken(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	if len(value) <= 8 {
+		if len(value) <= 4 {
+			return value
+		}
+		return value[:3] + "***" + value[len(value)-2:]
+	}
+	return value[:8] + "******" + value[len(value)-4:]
 }
 
 func newID(prefix string) (string, error) {
@@ -1114,6 +1138,23 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func uniqueNonEmpty(values []string) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		out = append(out, value)
+	}
+	return out
 }
 
 func nullFloat(v *float64) any {

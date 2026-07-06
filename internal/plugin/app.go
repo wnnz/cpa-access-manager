@@ -156,8 +156,8 @@ func (a *App) managementRegistration() ManagementRegistrationResponse {
 		Routes: routes,
 		Resources: []ResourceRoute{{
 			Path:        resourceIndex,
-			Menu:        "CPA Access",
-			Description: "Manage downstream CPA keys, bindings, quotas, inventory, and prices.",
+			Menu:        "API Key管理",
+			Description: "管理下游 API Key、关联资源和额度。",
 		}},
 	}
 }
@@ -262,9 +262,10 @@ func (a *App) handleUsage(raw []byte) ([]byte, error) {
 	}
 	var req UsageHandleRequest
 	if err := json.Unmarshal(raw, &req); err != nil {
-		return nil, err
+		return OKEnvelope(map[string]any{})
 	}
-	key, err := store.KeyByIDOrPresentedToken(context.Background(), firstNonEmpty(req.APIKey, req.Source))
+	keyIdentifier := firstNonEmpty(req.KeyID, req.KeyIDSnake, req.Principal, keyIDFromMetadata(req.Metadata), req.APIKey, req.Source)
+	key, err := store.KeyByIDOrPresentedToken(context.Background(), keyIdentifier)
 	if err != nil {
 		return OKEnvelope(map[string]any{})
 	}
@@ -287,7 +288,7 @@ func (a *App) handleUsage(raw []byte) ([]byte, error) {
 		},
 	})
 	if err != nil {
-		return ErrorEnvelope("usage_record_failed", err.Error(), http.StatusBadRequest), nil
+		return OKEnvelope(map[string]any{})
 	}
 	return OKEnvelope(map[string]any{})
 }

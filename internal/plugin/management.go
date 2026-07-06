@@ -253,6 +253,15 @@ func (a *App) handleInventory(store *access.Store, req ManagementRequest) Manage
 			if err := store.UpsertAuthFiles(ctx, files); err != nil {
 				return errorJSON(http.StatusBadRequest, err)
 			}
+			providers, err := a.hostProviderInventory(ctx, req)
+			if err != nil {
+				return errorJSON(http.StatusBadRequest, err)
+			}
+			for _, item := range providers {
+				if err := store.UpsertInventoryItem(ctx, item); err != nil {
+					return errorJSON(http.StatusBadRequest, err)
+				}
+			}
 		}
 		items, err := store.ListInventory(ctx)
 		return jsonOrError(items, err)

@@ -5,7 +5,7 @@
 dist/
 build/
 coverage.out
+.codegraph/
 *.db
 *.db-shm
 *.db-wal
-
