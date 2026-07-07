@@ -1,6 +1,6 @@
 # CPA Toolkit
 
-CPA Toolkit 是一个 CLIProxyAPI/CPA 增强插件，用来给 CPA 增加更细的下游 API Key 管理、账号/供应商授权、额度控制、用量统计和账号计费能力。
+CPA Toolkit 是一个 CLIProxyAPI/CPA 增强插件，用来给 CPA 增加更细的下游 API Key 管理、账号/供应商授权、额度控制、使用统计和账号计费能力。
 
 当前插件显示名是 `CPA Toolkit`，内部插件 ID、配置 key、管理 API 路径和构建产物名统一为 `cpa-toolkit`，仓库地址为 `https://github.com/wnnz/cpa-toolkit`。
 

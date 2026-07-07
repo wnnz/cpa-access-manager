@@ -8,8 +8,10 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/wnnz/cpa-toolkit/internal/access"
 )
@@ -336,6 +338,27 @@ func TestAppManagementRegistersMultipleResourceMenus(t *testing.T) {
 	if got[resourceSettings] != "设置" {
 		t.Fatalf("settings resource menu = %q, want 设置", got[resourceSettings])
 	}
+	if got[resourceUsage] != "使用统计" {
+		t.Fatalf("usage resource menu = %q, want 使用统计", got[resourceUsage])
+	}
+	wantOrder := []string{resourceAPIKeys, resourceUsage, resourceSettings}
+	wantSortedOrder := append([]string(nil), wantOrder...)
+	if len(resp.Resources) != len(wantOrder) {
+		t.Fatalf("resource count = %d, want %d", len(resp.Resources), len(wantOrder))
+	}
+	for i, want := range wantOrder {
+		if resp.Resources[i].Path != want {
+			t.Fatalf("resource[%d] = %q, want %q", i, resp.Resources[i].Path, want)
+		}
+	}
+	sort.SliceStable(wantSortedOrder, func(i, j int) bool {
+		return wantSortedOrder[i] < wantSortedOrder[j]
+	})
+	for i, want := range wantSortedOrder {
+		if resp.Resources[i].Path != want {
+			t.Fatalf("sorted resource[%d] = %q, want %q", i, resp.Resources[i].Path, want)
+		}
+	}
 }
 
 func TestAppManagementResourcePages(t *testing.T) {
@@ -344,8 +367,12 @@ func TestAppManagementResourcePages(t *testing.T) {
 		path string
 		want string
 	}{
+		{"/v0/resource/plugins/cpa-toolkit/01-apikey.html", "API Key 管理"},
+		{"/v0/resource/plugins/cpa-toolkit/02-usage-statistics.html", "使用统计"},
+		{"/v0/resource/plugins/cpa-toolkit/03-settings.html", "模型计费设置"},
 		{"/v0/resource/plugins/cpa-toolkit/apikey.html", "API Key 管理"},
 		{"/v0/resource/plugins/cpa-toolkit/settings.html", "模型计费设置"},
+		{"/v0/resource/plugins/cpa-toolkit/usage-statistics.html", "使用统计"},
 		{"/v0/resource/plugins/cpa-toolkit/index.html", "API Key 管理"},
 	} {
 		req := ManagementRequest{Method: http.MethodGet, Path: tc.path}
@@ -364,6 +391,103 @@ func TestAppManagementResourcePages(t *testing.T) {
 		if !strings.Contains(string(resp.Body), tc.want) {
 			t.Fatalf("resource body for %s does not contain %q", tc.path, tc.want)
 		}
+	}
+}
+
+func TestAppUsageHandleRecordsRequestMetrics(t *testing.T) {
+	app, store := newTestApp(t)
+	instanceID := mustUpsertProviderInstance(t, store, "codex", "auth-a")
+	key, _, err := store.CreateKey(context.Background(), "team", true, access.Limits{}, []access.Binding{{TargetType: access.BindingProviderInstance, TargetID: instanceID}})
+	if err != nil {
+		t.Fatalf("CreateKey() error = %v", err)
+	}
+
+	req := UsageHandleRequest{
+		Provider:            "codex",
+		Model:               "gpt-test",
+		APIKey:              key.ID,
+		AuthID:              "auth-a",
+		RequestIDAlt:        "req_123",
+		RequestResourceAlt:  "OpenAI Primary",
+		FirstTokenLatencyMS: 850,
+		DurationMSAlt:       4200,
+		Detail: UsageDetailIn{
+			InputTokens:     100,
+			CacheReadTokens: 40,
+			OutputTokens:    20,
+			TotalTokens:     120,
+		},
+	}
+	rawReq, _ := json.Marshal(req)
+	rawResp, err := app.HandleMethod(MethodUsageHandle, rawReq)
+	if err != nil {
+		t.Fatalf("HandleMethod(usage.handle) error = %v", err)
+	}
+	var env Envelope
+	if err := json.Unmarshal(rawResp, &env); err != nil {
+		t.Fatalf("Unmarshal envelope error = %v", err)
+	}
+	if !env.OK {
+		t.Fatalf("usage envelope = %#v, want ok", env)
+	}
+
+	entries, err := store.ListUsage(context.Background(), key.ID, 10)
+	if err != nil {
+		t.Fatalf("ListUsage() error = %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("usage entries len = %d, want 1", len(entries))
+	}
+	got := entries[0]
+	if got.RequestID != "req_123" || got.RequestResource != "OpenAI Primary" || got.FirstTokenLatencyMS != 850 || got.TotalLatencyMS != 4200 {
+		t.Fatalf("usage entry metrics = %#v", got)
+	}
+}
+
+func TestAppUsageHandleRecordsCPADurationFields(t *testing.T) {
+	app, store := newTestApp(t)
+	instanceID := mustUpsertProviderInstance(t, store, "codex", "auth-a")
+	key, _, err := store.CreateKey(context.Background(), "team", true, access.Limits{}, []access.Binding{{TargetType: access.BindingProviderInstance, TargetID: instanceID}})
+	if err != nil {
+		t.Fatalf("CreateKey() error = %v", err)
+	}
+
+	req := UsageHandleRequest{
+		Provider: "codex",
+		Model:    "gpt-test",
+		APIKey:   key.ID,
+		AuthID:   "auth-a",
+		TTFT:     int64(850 * time.Millisecond),
+		Latency:  int64(4200 * time.Millisecond),
+		Detail: UsageDetailIn{
+			InputTokens:  100,
+			OutputTokens: 20,
+			TotalTokens:  120,
+		},
+	}
+	rawReq, _ := json.Marshal(req)
+	rawResp, err := app.HandleMethod(MethodUsageHandle, rawReq)
+	if err != nil {
+		t.Fatalf("HandleMethod(usage.handle) error = %v", err)
+	}
+	var env Envelope
+	if err := json.Unmarshal(rawResp, &env); err != nil {
+		t.Fatalf("Unmarshal envelope error = %v", err)
+	}
+	if !env.OK {
+		t.Fatalf("usage envelope = %#v, want ok", env)
+	}
+
+	entries, err := store.ListUsage(context.Background(), key.ID, 10)
+	if err != nil {
+		t.Fatalf("ListUsage() error = %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("usage entries len = %d, want 1", len(entries))
+	}
+	got := entries[0]
+	if got.FirstTokenLatencyMS != 850 || got.TotalLatencyMS != 4200 {
+		t.Fatalf("usage duration metrics = first %d total %d, want 850/4200", got.FirstTokenLatencyMS, got.TotalLatencyMS)
 	}
 }
 

@@ -91,15 +91,6 @@
       flex-wrap: wrap;
     }
 
-    .panel-actions {
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 8px;
-      flex-wrap: wrap;
-      flex: 0 0 auto;
-    }
-
     .btn {
       height: 36px;
       display: inline-flex;
@@ -189,6 +180,15 @@
       line-height: 1.55;
     }
 
+    .panel-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+      flex: 0 0 auto;
+    }
+
     .panel-body {
       display: grid;
       gap: 14px;
@@ -225,7 +225,8 @@
         box-shadow var(--motion-fast) var(--ease-out);
     }
 
-    input:focus {
+    input:focus,
+    select:focus {
       border-color: #c96442;
       box-shadow: 0 0 0 4px rgba(201, 100, 66, 0.16);
     }
@@ -254,10 +255,10 @@
       align-items: center;
       justify-content: center;
       padding: 0 9px;
-      border: 1px solid var(--border);
+      border: 0;
       border-radius: 6px;
       color: var(--muted);
-      background: #f8f6f1;
+      background: transparent;
       font-size: 12px;
       font-weight: 700;
       transform: translateY(-50%);
@@ -269,8 +270,7 @@
 
     .plain-toggle:hover {
       color: var(--fg);
-      border-color: #cfc7bc;
-      background: #eee9e1;
+      background: transparent;
     }
 
     .error {
@@ -286,96 +286,24 @@
         transform 120ms var(--ease-out);
     }
 
-    .error.show {
-      min-height: 16px;
-      opacity: 1;
-      transform: translate3d(0, 0, 0);
-    }
-
     .error:not(.show) {
       height: 0;
       min-height: 0;
       overflow: hidden;
     }
 
+    .error.show {
+      min-height: 16px;
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+    }
+
     .pricing-table-wrap {
-      overflow-x: auto;
+      max-height: 338px;
+      overflow: auto;
       border: 1px solid var(--border);
       border-radius: 10px;
       background: var(--surface-muted);
-    }
-
-    .pricing-toolbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 12px 14px;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      background: var(--surface);
-    }
-
-    .pricing-summary {
-      color: var(--muted);
-      font-size: 13px;
-      font-weight: 700;
-      white-space: nowrap;
-    }
-
-    .pagination-controls {
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .page-size-label {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 700;
-      white-space: nowrap;
-    }
-
-    .page-size-select {
-      width: 78px;
-      height: 32px;
-      border: 1px solid var(--border-strong);
-      border-radius: 7px;
-      background: var(--surface);
-      color: var(--fg);
-      padding: 0 8px;
-      outline: none;
-    }
-
-    .pager-button {
-      height: 32px;
-      padding: 0 10px;
-      border-radius: 7px;
-      border: 1px solid var(--border-strong);
-      background: #ebe8e2;
-      color: var(--fg);
-      font-size: 12px;
-      font-weight: 700;
-      white-space: nowrap;
-    }
-
-    .pager-button:disabled {
-      cursor: not-allowed;
-      opacity: 0.48;
-    }
-
-    .page-info {
-      min-width: 78px;
-      color: #5f574d;
-      font-size: 12px;
-      font-weight: 700;
-      text-align: center;
-      white-space: nowrap;
     }
 
     .pricing-table {
@@ -400,6 +328,9 @@
     }
 
     .pricing-table th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
       height: 38px;
       padding: 0 12px;
       color: #5f574d;
@@ -419,6 +350,172 @@
 
     .pricing-table tbody tr:last-child td {
       border-bottom: 0;
+    }
+
+    .pricing-control-bar {
+      min-height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface);
+    }
+
+    .pricing-search {
+      position: relative;
+      width: min(206px, 100%);
+      flex: 0 0 206px;
+    }
+
+    .pricing-search svg {
+      position: absolute;
+      left: 11px;
+      top: 50%;
+      width: 16px;
+      height: 16px;
+      color: var(--muted);
+      transform: translateY(-50%);
+      pointer-events: none;
+    }
+
+    .pricing-search input {
+      padding-left: 34px;
+    }
+
+    .pricing-controls {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .pricing-count,
+    .pricing-page-summary,
+    .pricing-page-indicator {
+      color: #5f574d;
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .pricing-page-size {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #5f574d;
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .page-size-select {
+      position: relative;
+      display: inline-flex;
+    }
+
+    .page-size-select select {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .page-size-trigger {
+      width: 76px;
+      height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 0 10px 0 12px;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      color: var(--fg);
+      background: var(--surface);
+      box-shadow: none;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+      transition:
+        border-color var(--motion-fast) var(--ease-out),
+        box-shadow var(--motion-fast) var(--ease-out),
+        background-color var(--motion-fast) var(--ease-out);
+    }
+
+    .page-size-trigger svg {
+      width: 14px;
+      height: 14px;
+      color: #5f574d;
+      transition: transform var(--motion-fast) var(--ease-out);
+    }
+
+    .page-size-trigger:hover,
+    .page-size-trigger:focus-visible,
+    .page-size-trigger[aria-expanded="true"] {
+      border-color: #c96442;
+      box-shadow: 0 0 0 4px rgba(201, 100, 66, 0.16);
+      outline: none;
+    }
+
+    .page-size-trigger[aria-expanded="true"] svg {
+      transform: rotate(180deg);
+    }
+
+    .page-size-menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      z-index: 12;
+      width: 88px;
+      display: grid;
+      gap: 2px;
+      padding: 5px;
+      border: 1px solid #d8d0c4;
+      border-radius: 10px;
+      background: #fffefd;
+      box-shadow: 0 16px 34px rgba(60, 47, 34, 0.16);
+    }
+
+    .page-size-menu[hidden] {
+      display: none;
+    }
+
+    .page-size-option {
+      height: 30px;
+      border: 0;
+      border-radius: 7px;
+      color: #4f463d;
+      background: transparent;
+      font-size: 13px;
+      font-weight: 800;
+      text-align: left;
+      padding: 0 10px;
+      cursor: pointer;
+      transition:
+        color var(--motion-fast) var(--ease-out),
+        background-color var(--motion-fast) var(--ease-out);
+    }
+
+    .page-size-option:hover,
+    .page-size-option:focus-visible {
+      background: #f1ebe2;
+      outline: none;
+    }
+
+    .page-size-option[aria-selected="true"] {
+      color: #fffefd;
+      background: #c96442;
+    }
+
+    .btn[disabled] {
+      cursor: not-allowed;
+      opacity: 0.52;
+      transform: none;
     }
 
     .pricing-provider-cell {
@@ -503,6 +600,111 @@
       font-variant-numeric: tabular-nums;
     }
 
+    .version-panel-body {
+      gap: 16px;
+    }
+
+    .version-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .version-card {
+      display: grid;
+      gap: 7px;
+      min-height: 76px;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface);
+    }
+
+    .version-card span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .version-card strong {
+      color: var(--fg);
+      font-family: var(--mono);
+      font-size: 18px;
+      line-height: 1.1;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .version-card small {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .version-update-box {
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface);
+    }
+
+    .version-update-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .version-status-text {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .version-progress {
+      height: 6px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: var(--surface-muted);
+    }
+
+    .version-progress[hidden] {
+      display: none;
+    }
+
+    .version-progress span {
+      display: block;
+      width: var(--progress, 0%);
+      height: 100%;
+      border-radius: inherit;
+      background: #c96442;
+      transition: width var(--motion-base) var(--ease-out);
+    }
+
+    .release-notes {
+      display: grid;
+      gap: 6px;
+      margin: 0;
+      padding-left: 18px;
+      color: #5f574d;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .version-panel .btn:disabled {
+      opacity: 0.58;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .version-panel .btn:disabled:hover {
+      transform: none;
+    }
+
     .toast {
       position: fixed;
       left: 50%;
@@ -534,20 +736,37 @@
       }
 
       .topbar,
+      .pricing-control-bar,
       .panel-head {
         align-items: stretch;
         flex-direction: column;
       }
 
       .actions,
+      .pricing-controls,
       .panel-actions {
         justify-content: flex-start;
+      }
+
+      .pricing-search {
+        width: 100%;
+        flex-basis: auto;
+      }
+
+      .version-grid {
+        grid-template-columns: 1fr;
       }
     }
   </style>
 </head>
 <body>
   <main class="page" data-od-id="settings-page">
+    <header class="topbar" data-od-id="settings-page-header">
+      <div class="title" data-od-id="settings-page-title-block">
+        <h1 data-od-id="settings-page-title">管理设置</h1>
+      </div>
+    </header>
+
     <div class="settings-shell" data-od-id="settings-shell">
       <section class="panel" data-od-id="management-key-panel">
         <div class="panel-head">
@@ -577,30 +796,46 @@
             <p>价格单位为 USD / 1M tokens，可按模型独立维护。</p>
           </div>
           <div class="panel-actions" data-od-id="model-pricing-actions">
-            <button class="btn" id="addPriceRule" type="button" data-od-id="add-model-price-button">新增规则</button>
+            <button class="btn" id="addPricingRule" type="button" data-od-id="add-pricing-rule-button">新增规则</button>
             <button class="btn" id="syncModelPrices" type="button" data-od-id="sync-model-prices-button">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path><path d="M3 21v-5h5"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M21 3v5h-5"></path></svg>
               同步价格
             </button>
-            <button class="btn primary" id="saveModelPrices" type="button" data-od-id="save-model-prices-button">保存价格</button>
+            <button class="btn primary" id="savePricing" type="button" data-od-id="save-pricing-button">保存价格</button>
           </div>
         </div>
         <div class="panel-body">
-          <div class="pricing-toolbar" data-od-id="model-pricing-pagination">
-            <div class="pricing-summary" id="priceCount">0 条价格规则</div>
-            <div class="pagination-controls">
-              <label class="page-size-label" for="pricePageSize">
-                每页
-                <select class="page-size-select" id="pricePageSize">
-                  <option value="25">25</option>
+          <div class="pricing-control-bar" data-od-id="model-pricing-control-bar">
+            <div class="pricing-search" data-od-id="model-pricing-search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.2-3.2"></path></svg>
+              <input id="pricingSearchInput" type="search" placeholder="搜索提供商或模型" aria-label="搜索模型价格规则" data-od-id="model-pricing-search-input">
+            </div>
+            <div class="pricing-controls" data-od-id="model-pricing-pagination">
+              <span class="pricing-count" id="pricingRuleCount" data-od-id="model-pricing-rule-count">0 条价格规则</span>
+              <div class="pricing-page-size" data-od-id="model-pricing-page-size-shell">
+                <span id="pricingPageSizeLabel">每页</span>
+                <span class="page-size-select" data-od-id="model-pricing-page-size-control">
+                  <select id="pricingPageSize" aria-labelledby="pricingPageSizeLabel" tabindex="-1" data-od-id="model-pricing-page-size">
+                  <option value="5">5</option>
+                  <option value="10">10</option>
+                  <option value="20">20</option>
                   <option value="50" selected>50</option>
-                  <option value="100">100</option>
-                  <option value="200">200</option>
-                </select>
-              </label>
-              <button class="pager-button" id="pricePrevPage" type="button">上一页</button>
-              <span class="page-info" id="pricePageInfo">第 1 / 1 页</span>
-              <button class="pager-button" id="priceNextPage" type="button">下一页</button>
+                  </select>
+                  <button class="page-size-trigger" id="pricingPageSizeTrigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="pricingPageSizeMenu" aria-labelledby="pricingPageSizeLabel pricingPageSizeValue" data-od-id="model-pricing-page-size-trigger">
+                    <span id="pricingPageSizeValue">50</span>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"></path></svg>
+                  </button>
+                  <div class="page-size-menu" id="pricingPageSizeMenu" role="listbox" aria-label="每页显示数量" hidden data-od-id="model-pricing-page-size-menu">
+                    <button class="page-size-option" type="button" role="option" data-value="5" aria-selected="false">5</button>
+                    <button class="page-size-option" type="button" role="option" data-value="10" aria-selected="false">10</button>
+                    <button class="page-size-option" type="button" role="option" data-value="20" aria-selected="false">20</button>
+                    <button class="page-size-option" type="button" role="option" data-value="50" aria-selected="true">50</button>
+                  </div>
+                </span>
+              </div>
+              <button class="btn" id="pricingPrevPage" type="button" data-od-id="model-pricing-prev-page">上一页</button>
+              <span class="pricing-page-indicator" id="pricingPageIndicator" data-od-id="model-pricing-page-indicator">第 1 / 1 页</span>
+              <button class="btn" id="pricingNextPage" type="button" data-od-id="model-pricing-next-page">下一页</button>
             </div>
           </div>
           <div class="pricing-table-wrap" data-od-id="model-pricing-table-wrap">
@@ -615,8 +850,88 @@
                   <th class="pricing-actions-cell">操作</th>
                 </tr>
               </thead>
-              <tbody id="priceRows"></tbody>
+              <tbody id="pricingTableBody">
+                <tr data-od-id="model-price-row-gpt-41">
+                  <td class="pricing-provider-cell"><input class="provider-input" type="text" value="OpenAI" aria-label="gpt-4.1 提供商" data-od-id="provider-gpt-41"></td>
+                  <td class="pricing-model-cell"><input class="model-name-input" type="text" value="gpt-4.1" aria-label="模型名称 gpt-4.1" data-od-id="model-name-gpt-41"></td>
+                  <td><input class="price-input" type="number" min="0" step="0.01" value="2.00" data-sync-value="2.00" aria-label="gpt-4.1 输入价格" data-od-id="price-gpt-41-input"></td>
+                  <td><input class="price-input" type="number" min="0" step="0.01" value="0.50" data-sync-value="0.50" aria-label="gpt-4.1 读取缓存价格" data-od-id="price-gpt-41-cache-read"></td>
+                  <td><input class="price-input" type="number" min="0" step="0.01" value="8.00" data-sync-value="8.00" aria-label="gpt-4.1 输出价格" data-od-id="price-gpt-41-output"></td>
+                  <td class="pricing-actions-cell"><div class="price-row-actions"><button class="icon-btn danger" title="删除" aria-label="删除 gpt-4.1" data-action="delete-price-row" data-od-id="delete-price-gpt-41"></button></div></td>
+                </tr>
+                <tr data-od-id="model-price-row-gpt-41-mini">
+                  <td class="pricing-provider-cell"><input class="provider-input" type="text" value="OpenAI" aria-label="gpt-4.1-mini 提供商" data-od-id="provider-gpt-41-mini"></td>
+                  <td class="pricing-model-cell"><input class="model-name-input" type="text" value="gpt-4.1-mini" aria-label="模型名称 gpt-4.1-mini" data-od-id="model-name-gpt-41-mini"></td>
+                  <td><input class="price-input" type="number" min="0" step="0.01" value="0.40" data-sync-value="0.40" aria-label="gpt-4.1-mini 输入价格" data-od-id="price-gpt-41-mini-input"></td>
+                  <td><input class="price-input" type="number" min="0" step="0.01" value="0.10" data-sync-value="0.10" aria-label="gpt-4.1-mini 读取缓存价格" data-od-id="price-gpt-41-mini-cache-read"></td>
+                  <td><input class="price-input" type="number" min="0" step="0.01" value="1.60" data-sync-value="1.60" aria-label="gpt-4.1-mini 输出价格" data-od-id="price-gpt-41-mini-output"></td>
+                  <td class="pricing-actions-cell"><div class="price-row-actions"><button class="icon-btn danger" title="删除" aria-label="删除 gpt-4.1-mini" data-action="delete-price-row" data-od-id="delete-price-gpt-41-mini"></button></div></td>
+                </tr>
+                <tr data-od-id="model-price-row-claude-37-sonnet">
+                  <td class="pricing-provider-cell"><input class="provider-input" type="text" value="Anthropic" aria-label="claude-3.7-sonnet 提供商" data-od-id="provider-claude-37-sonnet"></td>
+                  <td class="pricing-model-cell"><input class="model-name-input" type="text" value="claude-3.7-sonnet" aria-label="模型名称 claude-3.7-sonnet" data-od-id="model-name-claude-37-sonnet"></td>
+                  <td><input class="price-input" type="number" min="0" step="0.01" value="3.00" data-sync-value="3.00" aria-label="claude-3.7-sonnet 输入价格" data-od-id="price-claude-37-sonnet-input"></td>
+                  <td><input class="price-input" type="number" min="0" step="0.01" value="0.30" data-sync-value="0.30" aria-label="claude-3.7-sonnet 读取缓存价格" data-od-id="price-claude-37-sonnet-cache-read"></td>
+                  <td><input class="price-input" type="number" min="0" step="0.01" value="15.00" data-sync-value="15.00" aria-label="claude-3.7-sonnet 输出价格" data-od-id="price-claude-37-sonnet-output"></td>
+                  <td class="pricing-actions-cell"><div class="price-row-actions"><button class="icon-btn danger" title="删除" aria-label="删除 claude-3.7-sonnet" data-action="delete-price-row" data-od-id="delete-price-claude-37-sonnet"></button></div></td>
+                </tr>
+                <tr data-od-id="model-price-row-gemini-25-pro">
+                  <td class="pricing-provider-cell"><input class="provider-input" type="text" value="Google" aria-label="gemini-2.5-pro 提供商" data-od-id="provider-gemini-25-pro"></td>
+                  <td class="pricing-model-cell"><input class="model-name-input" type="text" value="gemini-2.5-pro" aria-label="模型名称 gemini-2.5-pro" data-od-id="model-name-gemini-25-pro"></td>
+                  <td><input class="price-input" type="number" min="0" step="0.01" value="1.25" data-sync-value="1.25" aria-label="gemini-2.5-pro 输入价格" data-od-id="price-gemini-25-pro-input"></td>
+                  <td><input class="price-input" type="number" min="0" step="0.01" value="0.31" data-sync-value="0.31" aria-label="gemini-2.5-pro 读取缓存价格" data-od-id="price-gemini-25-pro-cache-read"></td>
+                  <td><input class="price-input" type="number" min="0" step="0.01" value="10.00" data-sync-value="10.00" aria-label="gemini-2.5-pro 输出价格" data-od-id="price-gemini-25-pro-output"></td>
+                  <td class="pricing-actions-cell"><div class="price-row-actions"><button class="icon-btn danger" title="删除" aria-label="删除 gemini-2.5-pro" data-action="delete-price-row" data-od-id="delete-price-gemini-25-pro"></button></div></td>
+                </tr>
+              </tbody>
             </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel version-panel" data-od-id="cpa-version-update-panel">
+        <div class="panel-head">
+          <div>
+            <h2>CPA 版本更新</h2>
+            <p>检查并更新当前 CPA 管理服务版本，建议在低峰时段执行。</p>
+          </div>
+          <div class="panel-actions" data-od-id="cpa-version-actions">
+            <button class="btn" id="checkCpaVersion" type="button" data-od-id="check-cpa-version-button">检查更新</button>
+            <button class="btn primary" id="updateCpaVersion" type="button" disabled data-od-id="update-cpa-version-button">暂不可用</button>
+          </div>
+        </div>
+        <div class="panel-body version-panel-body">
+          <div class="version-grid" data-od-id="cpa-version-summary">
+            <article class="version-card" data-od-id="cpa-current-version-card">
+              <span>当前版本</span>
+              <strong id="currentCpaVersion">未知</strong>
+              <small>当前服务</small>
+            </article>
+            <article class="version-card" data-od-id="cpa-latest-version-card">
+              <span>可更新版本</span>
+              <strong id="latestCpaVersion">未接入</strong>
+              <small>等待接口</small>
+            </article>
+            <article class="version-card" data-od-id="cpa-release-channel-card">
+              <span>发布渠道</span>
+              <strong>stable</strong>
+              <small>暂未配置</small>
+            </article>
+            <article class="version-card" data-od-id="cpa-last-check-card">
+              <span>上次检查</span>
+              <strong id="cpaVersionLastChecked">尚未检查</strong>
+              <small>等待接口</small>
+            </article>
+          </div>
+          <div class="version-update-box" data-od-id="cpa-version-update-status">
+            <div class="version-update-row">
+              <p class="version-status-text" id="cpaUpdateStatus">当前插件暂未接入 CPA 在线更新接口。</p>
+              <span class="version-status-text" id="cpaUpdateProgressText">未接入</span>
+            </div>
+            <div class="version-progress" id="cpaUpdateProgress" hidden aria-hidden="true">
+              <span id="cpaUpdateProgressBar"></span>
+            </div>
+            <ul class="release-notes" data-od-id="cpa-version-release-notes"><li>当前页面已保留 Open Design 的版本面板布局。</li><li>在线更新需要 CPA 提供对应管理接口后再启用。</li><li>模型计费设置仍使用真实接口保存和同步。</li></ul>
           </div>
         </div>
       </section>
@@ -643,20 +958,29 @@
       managementKeyError: document.getElementById("managementKeyError"),
       managementKeyToggle: document.getElementById("toggleManagementKeyPlain"),
       saveManagementKey: document.getElementById("saveManagementKey"),
-      priceRows: document.getElementById("priceRows"),
-      priceCount: document.getElementById("priceCount"),
-      pricePageSize: document.getElementById("pricePageSize"),
-      pricePrevPage: document.getElementById("pricePrevPage"),
-      priceNextPage: document.getElementById("priceNextPage"),
-      pricePageInfo: document.getElementById("pricePageInfo"),
-      addPriceRule: document.getElementById("addPriceRule"),
+      priceRows: document.getElementById("pricingTableBody") || document.getElementById("priceRows"),
+      priceCount: document.getElementById("pricingRuleCount") || document.getElementById("priceCount"),
+      priceSearch: document.getElementById("pricingSearchInput"),
+      pricePageSize: document.getElementById("pricingPageSize") || document.getElementById("pricePageSize"),
+      pricePageSizeTrigger: document.getElementById("pricingPageSizeTrigger"),
+      pricePageSizeMenu: document.getElementById("pricingPageSizeMenu"),
+      pricePageSizeValue: document.getElementById("pricingPageSizeValue"),
+      pricePrevPage: document.getElementById("pricingPrevPage") || document.getElementById("pricePrevPage"),
+      priceNextPage: document.getElementById("pricingNextPage") || document.getElementById("priceNextPage"),
+      pricePageInfo: document.getElementById("pricingPageIndicator") || document.getElementById("pricePageInfo"),
+      addPriceRule: document.getElementById("addPricingRule") || document.getElementById("addPriceRule"),
       syncPrices: document.getElementById("syncModelPrices"),
-      savePrices: document.getElementById("saveModelPrices")
+      savePrices: document.getElementById("savePricing") || document.getElementById("saveModelPrices"),
+      checkCpaVersion: document.getElementById("checkCpaVersion"),
+      updateCpaVersion: document.getElementById("updateCpaVersion"),
+      cpaUpdateStatus: document.getElementById("cpaUpdateStatus"),
+      cpaUpdateProgressText: document.getElementById("cpaUpdateProgressText")
     };
 
     let priceRules = [];
     const priceState = { page: 1, pageSize: 50 };
     let pendingPricingDeleteIndex = null;
+    let priceSearchDebounceTimer = null;
 
     function base() { return session.apiBase || location.origin; }
     function secret() { return session.managementKey; }
@@ -833,25 +1157,66 @@
         </tr>
       `;
     }
+    function priceSearchText(rule = {}) {
+      return `${asString(rule.provider)} ${asString(rule.model)}`.toLowerCase();
+    }
+    function filteredPriceEntries() {
+      const query = els.priceSearch.value.trim().toLowerCase();
+      return priceRules
+        .map((rule, index) => ({ rule, index }))
+        .filter(entry => !query || priceSearchText(entry.rule).includes(query));
+    }
+    function schedulePriceSearchRender() {
+      if (priceSearchDebounceTimer) window.clearTimeout(priceSearchDebounceTimer);
+      priceSearchDebounceTimer = window.setTimeout(() => {
+        priceSearchDebounceTimer = null;
+        priceState.page = 1;
+        renderPricePage();
+      }, 260);
+    }
     function totalPricePages() {
-      return Math.max(1, Math.ceil(priceRules.length / priceState.pageSize));
+      return Math.max(1, Math.ceil(filteredPriceEntries().length / priceState.pageSize));
+    }
+
+    function syncPricePageSizeControl() {
+      if (!els.pricePageSizeValue || !els.pricePageSizeMenu) return;
+      const value = String(priceState.pageSize);
+      els.pricePageSizeValue.textContent = value;
+      els.pricePageSizeMenu.querySelectorAll(".page-size-option").forEach(option => {
+        option.setAttribute("aria-selected", option.dataset.value === value ? "true" : "false");
+      });
+    }
+    function closePricePageSizeMenu() {
+      if (!els.pricePageSizeMenu || !els.pricePageSizeTrigger) return;
+      els.pricePageSizeMenu.hidden = true;
+      els.pricePageSizeTrigger.setAttribute("aria-expanded", "false");
+    }
+    function togglePricePageSizeMenu() {
+      if (!els.pricePageSizeMenu || !els.pricePageSizeTrigger) return;
+      const shouldOpen = els.pricePageSizeMenu.hidden;
+      els.pricePageSizeMenu.hidden = !shouldOpen;
+      els.pricePageSizeTrigger.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+      if (shouldOpen) els.pricePageSizeMenu.querySelector('[aria-selected="true"]')?.focus({ preventScroll: true });
     }
     function updatePricePager() {
+      const filtered = filteredPriceEntries();
+      const query = els.priceSearch.value.trim();
       const totalPages = totalPricePages();
       priceState.page = Math.min(Math.max(priceState.page, 1), totalPages);
-      els.priceCount.textContent = `${priceRules.length} 条价格规则`;
+      els.priceCount.textContent = query ? `${filtered.length} / ${priceRules.length} 条价格规则` : `${priceRules.length} 条价格规则`;
       els.pricePageInfo.textContent = `第 ${priceState.page} / ${totalPages} 页`;
       els.pricePrevPage.disabled = priceState.page <= 1;
       els.priceNextPage.disabled = priceState.page >= totalPages;
       els.pricePageSize.value = String(priceState.pageSize);
+      syncPricePageSizeControl();
     }
     function renderPricePage() {
       updatePricePager();
       const start = (priceState.page - 1) * priceState.pageSize;
-      const list = priceRules.slice(start, start + priceState.pageSize);
+      const list = filteredPriceEntries().slice(start, start + priceState.pageSize);
       els.priceRows.innerHTML = list.length
-        ? list.map((rule, offset) => rowHTML(rule, start + offset)).join("")
-        : `<tr><td colspan="6" style="padding:24px;text-align:center;color:var(--muted)">暂无价格规则，可点击同步价格。</td></tr>`;
+        ? list.map(entry => rowHTML(entry.rule, entry.index)).join("")
+        : `<tr><td colspan="6" style="padding:24px;text-align:center;color:var(--muted)">暂无匹配的价格规则。</td></tr>`;
       resetPendingPricingDelete();
     }
     function renderPrices(rules) {
@@ -945,6 +1310,7 @@
       try {
         syncVisiblePriceRows();
         priceRules.unshift({ provider: "codex", model: "", input_usd_per_million: 0, cache_read_usd_per_million: 0, output_usd_per_million: 0 });
+        els.priceSearch.value = "";
         priceState.page = 1;
         renderPricePage();
         const modelInput = els.priceRows.querySelector(".model-name-input");
@@ -987,8 +1353,12 @@
     });
     document.addEventListener("click", event => {
       if (!pendingPricingDeleteIndex && pendingPricingDeleteIndex !== 0) return;
-      if (event.target.closest("#priceRows [data-action='delete-price-row']")) return;
+      if (event.target.closest("#pricingTableBody [data-action='delete-price-row'], #priceRows [data-action='delete-price-row']")) return;
       resetPendingPricingDelete();
+    });
+    els.priceSearch.addEventListener("input", () => {
+      resetPendingPricingDelete();
+      schedulePriceSearchRender();
     });
     els.pricePrevPage.addEventListener("click", () => {
       try {
@@ -1018,8 +1388,60 @@
         showToast(error.message || "切换分页失败");
       }
     });
+
+    if (els.pricePageSizeTrigger && els.pricePageSizeMenu) {
+      els.pricePageSizeTrigger.addEventListener("click", event => {
+        event.stopPropagation();
+        togglePricePageSizeMenu();
+      });
+      els.pricePageSizeMenu.addEventListener("click", event => {
+        const option = event.target.closest(".page-size-option");
+        if (!option) return;
+        els.pricePageSize.value = option.dataset.value;
+        els.pricePageSize.dispatchEvent(new Event("change", { bubbles: true }));
+        closePricePageSizeMenu();
+        els.pricePageSizeTrigger.focus({ preventScroll: true });
+      });
+      els.pricePageSizeMenu.addEventListener("keydown", event => {
+        if (event.key === "Escape") {
+          closePricePageSizeMenu();
+          els.pricePageSizeTrigger.focus({ preventScroll: true });
+          return;
+        }
+        if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+        event.preventDefault();
+        const options = Array.from(els.pricePageSizeMenu.querySelectorAll(".page-size-option"));
+        const current = options.indexOf(document.activeElement);
+        const direction = event.key === "ArrowDown" ? 1 : -1;
+        options[(current + direction + options.length) % options.length].focus({ preventScroll: true });
+      });
+      document.addEventListener("click", event => {
+        if (!event.target.closest(".page-size-select")) closePricePageSizeMenu();
+      });
+      document.addEventListener("keydown", event => {
+        if (event.key === "Escape") closePricePageSizeMenu();
+      });
+    }
+    els.priceRows.addEventListener("input", event => {
+      if (!event.target.matches(".provider-input, .model-name-input")) return;
+      if (!els.priceSearch.value.trim()) return;
+      try {
+        syncVisiblePriceRows();
+        renderPricePage();
+      } catch (error) {
+        showToast(error.message || "筛选失败");
+      }
+    });
     els.syncPrices.addEventListener("click", syncPrices);
     els.savePrices.addEventListener("click", savePrices);
+    if (els.checkCpaVersion) {
+      els.checkCpaVersion.addEventListener("click", () => {
+        if (els.cpaUpdateStatus) els.cpaUpdateStatus.textContent = "当前插件暂未接入 CPA 在线更新接口。";
+        if (els.cpaUpdateProgressText) els.cpaUpdateProgressText.textContent = "未接入";
+        if (els.updateCpaVersion) els.updateCpaVersion.disabled = true;
+        showToast("CPA 在线更新接口暂未接入");
+      });
+    }
 
     initSession();
     loadPrices().catch(error => showToast(error.message || "加载失败"));

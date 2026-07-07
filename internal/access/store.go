@@ -131,6 +131,8 @@ func (s *Store) init(ctx context.Context) error {
 		`CREATE TABLE IF NOT EXISTS usage_ledger (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			key_id TEXT NOT NULL,
+			request_id TEXT NOT NULL DEFAULT '',
+			request_resource TEXT NOT NULL DEFAULT '',
 			auth_id TEXT NOT NULL DEFAULT '',
 			auth_index TEXT NOT NULL DEFAULT '',
 			provider TEXT NOT NULL DEFAULT '',
@@ -144,6 +146,8 @@ func (s *Store) init(ctx context.Context) error {
 			cache_read_tokens INTEGER NOT NULL DEFAULT 0,
 			cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
 			total_tokens INTEGER NOT NULL DEFAULT 0,
+			first_token_latency_ms INTEGER NOT NULL DEFAULT 0,
+			total_latency_ms INTEGER NOT NULL DEFAULT 0,
 			usd REAL NOT NULL DEFAULT 0,
 			failed INTEGER NOT NULL DEFAULT 0,
 			created_at TEXT NOT NULL,
@@ -157,8 +161,57 @@ func (s *Store) init(ctx context.Context) error {
 			return err
 		}
 	}
+	if err := s.ensureUsageLedgerColumns(ctx); err != nil {
+		return err
+	}
 	_, err := s.db.ExecContext(ctx, `INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES(1, ?)`, timeNowString())
 	return err
+}
+
+func (s *Store) ensureUsageLedgerColumns(ctx context.Context) error {
+	columns, err := s.tableColumns(ctx, "usage_ledger")
+	if err != nil {
+		return err
+	}
+	additions := []struct {
+		name string
+		sql  string
+	}{
+		{"request_id", "request_id TEXT NOT NULL DEFAULT ''"},
+		{"request_resource", "request_resource TEXT NOT NULL DEFAULT ''"},
+		{"first_token_latency_ms", "first_token_latency_ms INTEGER NOT NULL DEFAULT 0"},
+		{"total_latency_ms", "total_latency_ms INTEGER NOT NULL DEFAULT 0"},
+	}
+	for _, addition := range additions {
+		if columns[addition.name] {
+			continue
+		}
+		if _, err := s.db.ExecContext(ctx, "ALTER TABLE usage_ledger ADD COLUMN "+addition.sql); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Store) tableColumns(ctx context.Context, table string) (map[string]bool, error) {
+	rows, err := s.db.QueryContext(ctx, "PRAGMA table_info("+table+")")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	columns := map[string]bool{}
+	for rows.Next() {
+		var cid int
+		var name, typ string
+		var notNull int
+		var defaultValue any
+		var pk int
+		if err := rows.Scan(&cid, &name, &typ, &notNull, &defaultValue, &pk); err != nil {
+			return nil, err
+		}
+		columns[name] = true
+	}
+	return columns, rows.Err()
 }
 
 func (s *Store) CreateKey(ctx context.Context, name string, enabled bool, limits Limits, bindings []Binding) (Key, string, error) {
@@ -766,9 +819,9 @@ func (s *Store) RecordUsage(ctx context.Context, entry UsageEntry) (UsageEntry, 
 	} else {
 		entry.USD = CalculateUSD(rule, entry.Detail)
 	}
-	res, err := s.db.ExecContext(ctx, `INSERT INTO usage_ledger(key_id, auth_id, auth_index, provider, provider_instance_id, model, alias, input_tokens, output_tokens, reasoning_tokens, cached_tokens, cache_read_tokens, cache_creation_tokens, total_tokens, usd, failed, created_at)
-		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		entry.KeyID, entry.AuthID, entry.AuthIndex, entry.Provider, entry.ProviderInstanceID, entry.Model, entry.Alias, entry.Detail.InputTokens, entry.Detail.OutputTokens, entry.Detail.ReasoningTokens, entry.Detail.CachedTokens, entry.Detail.CacheReadTokens, entry.Detail.CacheCreationTokens, entry.Detail.TotalTokens, entry.USD, boolInt(entry.Failed), formatTime(entry.CreatedAt))
+	res, err := s.db.ExecContext(ctx, `INSERT INTO usage_ledger(key_id, request_id, request_resource, auth_id, auth_index, provider, provider_instance_id, model, alias, input_tokens, output_tokens, reasoning_tokens, cached_tokens, cache_read_tokens, cache_creation_tokens, total_tokens, first_token_latency_ms, total_latency_ms, usd, failed, created_at)
+		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		entry.KeyID, strings.TrimSpace(entry.RequestID), strings.TrimSpace(entry.RequestResource), entry.AuthID, entry.AuthIndex, entry.Provider, entry.ProviderInstanceID, entry.Model, entry.Alias, entry.Detail.InputTokens, entry.Detail.OutputTokens, entry.Detail.ReasoningTokens, entry.Detail.CachedTokens, entry.Detail.CacheReadTokens, entry.Detail.CacheCreationTokens, entry.Detail.TotalTokens, entry.FirstTokenLatencyMS, entry.TotalLatencyMS, entry.USD, boolInt(entry.Failed), formatTime(entry.CreatedAt))
 	if err != nil {
 		return UsageEntry{}, err
 	}
@@ -781,7 +834,7 @@ func (s *Store) ListUsage(ctx context.Context, keyID string, limit int) ([]Usage
 		limit = 100
 	}
 	args := []any{}
-	query := `SELECT id, key_id, auth_id, auth_index, provider, provider_instance_id, model, alias, input_tokens, output_tokens, reasoning_tokens, cached_tokens, cache_read_tokens, cache_creation_tokens, total_tokens, usd, failed, created_at FROM usage_ledger`
+	query := `SELECT id, key_id, request_id, request_resource, auth_id, auth_index, provider, provider_instance_id, model, alias, input_tokens, output_tokens, reasoning_tokens, cached_tokens, cache_read_tokens, cache_creation_tokens, total_tokens, first_token_latency_ms, total_latency_ms, usd, failed, created_at FROM usage_ledger`
 	if strings.TrimSpace(keyID) != "" {
 		query += ` WHERE key_id = ?`
 		args = append(args, strings.TrimSpace(keyID))
@@ -798,7 +851,7 @@ func (s *Store) ListUsage(ctx context.Context, keyID string, limit int) ([]Usage
 		var e UsageEntry
 		var created string
 		var failed int
-		if err := rows.Scan(&e.ID, &e.KeyID, &e.AuthID, &e.AuthIndex, &e.Provider, &e.ProviderInstanceID, &e.Model, &e.Alias, &e.Detail.InputTokens, &e.Detail.OutputTokens, &e.Detail.ReasoningTokens, &e.Detail.CachedTokens, &e.Detail.CacheReadTokens, &e.Detail.CacheCreationTokens, &e.Detail.TotalTokens, &e.USD, &failed, &created); err != nil {
+		if err := rows.Scan(&e.ID, &e.KeyID, &e.RequestID, &e.RequestResource, &e.AuthID, &e.AuthIndex, &e.Provider, &e.ProviderInstanceID, &e.Model, &e.Alias, &e.Detail.InputTokens, &e.Detail.OutputTokens, &e.Detail.ReasoningTokens, &e.Detail.CachedTokens, &e.Detail.CacheReadTokens, &e.Detail.CacheCreationTokens, &e.Detail.TotalTokens, &e.FirstTokenLatencyMS, &e.TotalLatencyMS, &e.USD, &failed, &created); err != nil {
 			return nil, err
 		}
 		e.Failed = failed != 0

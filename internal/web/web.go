@@ -7,3 +7,6 @@ var APIKeyHTML string
 
 //go:embed settings.html
 var SettingsHTML string
+
+//go:embed usage-statistics.html
+var UsageStatisticsHTML string

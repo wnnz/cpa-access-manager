@@ -221,6 +221,39 @@ func TestRecordUsageUnpricedModelStillRecordsLedger(t *testing.T) {
 	}
 }
 
+func TestRecordUsageStoresRequestMetadata(t *testing.T) {
+	store := newTestStore(t)
+	key, _, err := store.CreateKey(context.Background(), "team", true, Limits{}, []Binding{{TargetType: BindingAuthID, TargetID: "auth-a"}})
+	if err != nil {
+		t.Fatalf("CreateKey() error = %v", err)
+	}
+	_, err = store.RecordUsage(context.Background(), UsageEntry{
+		KeyID:               key.ID,
+		RequestID:           "req_store_1",
+		RequestResource:     "openai-prod-2025.json",
+		AuthID:              "auth-a",
+		Provider:            "codex",
+		Model:               "unpriced-model",
+		FirstTokenLatencyMS: 730,
+		TotalLatencyMS:      4100,
+		Detail:              UsageDetail{InputTokens: 12, CacheReadTokens: 3, OutputTokens: 34, TotalTokens: 46},
+	})
+	if err != nil {
+		t.Fatalf("RecordUsage() error = %v", err)
+	}
+	entries, err := store.ListUsage(context.Background(), key.ID, 10)
+	if err != nil {
+		t.Fatalf("ListUsage() error = %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("ListUsage() len = %d, want 1", len(entries))
+	}
+	got := entries[0]
+	if got.RequestID != "req_store_1" || got.RequestResource != "openai-prod-2025.json" || got.FirstTokenLatencyMS != 730 || got.TotalLatencyMS != 4100 {
+		t.Fatalf("usage metadata = %#v", got)
+	}
+}
+
 func TestAuthenticate_RejectsKeyIDAsPresentedToken(t *testing.T) {
 	store := newTestStore(t)
 	key, _, err := store.CreateKey(context.Background(), "team", true, Limits{}, []Binding{{TargetType: BindingAuthID, TargetID: "auth-a"}})

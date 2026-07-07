@@ -38,9 +38,14 @@ const (
 	routeUsage      = "/plugins/" + PluginID + "/usage"
 	routeStatus     = "/plugins/" + PluginID + "/status"
 
-	resourceAPIKeys  = "/apikey.html"
+	resourceAPIKeys  = "/01-apikey.html"
+	resourceUsage    = "/02-usage-statistics.html"
+	resourceSettings = "/03-settings.html"
 	resourceIndex    = "/index.html"
-	resourceSettings = "/settings.html"
+
+	legacyResourceAPIKeys  = "/apikey.html"
+	legacyResourceUsage    = "/usage-statistics.html"
+	legacyResourceSettings = "/settings.html"
 )
 
 type Envelope struct {
@@ -164,21 +169,41 @@ type SchedulerPickResponse struct {
 }
 
 type UsageHandleRequest struct {
-	Provider     string         `json:"Provider"`
-	ExecutorType string         `json:"ExecutorType"`
-	Model        string         `json:"Model"`
-	Alias        string         `json:"Alias"`
-	KeyID        string         `json:"KeyID"`
-	KeyIDSnake   string         `json:"key_id"`
-	Principal    string         `json:"Principal"`
-	APIKey       string         `json:"APIKey"`
-	AuthID       string         `json:"AuthID"`
-	AuthIndex    string         `json:"AuthIndex"`
-	AuthType     string         `json:"AuthType"`
-	Source       string         `json:"Source"`
-	Failed       bool           `json:"Failed"`
-	Metadata     map[string]any `json:"Metadata"`
-	Detail       UsageDetailIn  `json:"Detail"`
+	Provider               string         `json:"Provider"`
+	ExecutorType           string         `json:"ExecutorType"`
+	Model                  string         `json:"Model"`
+	Alias                  string         `json:"Alias"`
+	KeyID                  string         `json:"KeyID"`
+	KeyIDSnake             string         `json:"key_id"`
+	Principal              string         `json:"Principal"`
+	APIKey                 string         `json:"APIKey"`
+	AuthID                 string         `json:"AuthID"`
+	AuthIndex              string         `json:"AuthIndex"`
+	AuthType               string         `json:"AuthType"`
+	Source                 string         `json:"Source"`
+	RequestID              string         `json:"RequestID"`
+	RequestIDAlt           string         `json:"request_id"`
+	RequestResource        string         `json:"RequestResource"`
+	RequestResourceAlt     string         `json:"request_resource"`
+	TTFT                   any            `json:"TTFT"`
+	TTFTAlt                any            `json:"ttft"`
+	Latency                any            `json:"Latency"`
+	LatencyAlt             any            `json:"latency"`
+	Duration               any            `json:"Duration"`
+	DurationAlt            any            `json:"duration"`
+	FirstTokenLatencyMS    int64          `json:"FirstTokenLatencyMS"`
+	FirstTokenLatencyMSAlt int64          `json:"first_token_latency_ms"`
+	TTFTMS                 int64          `json:"TTFTMS"`
+	TTFTMSAlt              int64          `json:"ttft_ms"`
+	TotalLatencyMS         int64          `json:"TotalLatencyMS"`
+	TotalLatencyMSAlt      int64          `json:"total_latency_ms"`
+	LatencyMS              int64          `json:"LatencyMS"`
+	LatencyMSAlt           int64          `json:"latency_ms"`
+	DurationMS             int64          `json:"DurationMS"`
+	DurationMSAlt          int64          `json:"duration_ms"`
+	Failed                 bool           `json:"Failed"`
+	Metadata               map[string]any `json:"Metadata"`
+	Detail                 UsageDetailIn  `json:"Detail"`
 }
 
 type UsageDetailIn struct {

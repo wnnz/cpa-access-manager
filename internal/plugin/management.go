@@ -78,6 +78,16 @@ func (a *App) handleManagement(raw []byte) ([]byte, error) {
 			Body: []byte(web.SettingsHTML),
 		})
 	}
+	if isUsageResource(req.Path) {
+		return OKEnvelope(ManagementResponse{
+			StatusCode: http.StatusOK,
+			Headers: http.Header{
+				"content-type":  []string{"text/html; charset=utf-8"},
+				"cache-control": []string{"no-store"},
+			},
+			Body: []byte(web.UsageStatisticsHTML),
+		})
+	}
 	cfg, store := a.loaded()
 	if store == nil {
 		return OKEnvelope(jsonManagement(http.StatusServiceUnavailable, map[string]any{"error": "store is not configured"}))
@@ -480,17 +490,26 @@ func normalizedPluginPath(path string) string {
 
 func isAPIKeyResource(path string) bool {
 	path = strings.TrimSpace(path)
-	return strings.HasSuffix(path, "/v0/resource/plugins/"+PluginID+resourceAPIKeys) ||
-		strings.HasSuffix(path, "/resource/plugins/"+PluginID+resourceAPIKeys) ||
-		strings.HasSuffix(path, resourceAPIKeys) ||
-		strings.HasSuffix(path, "/v0/resource/plugins/"+PluginID+resourceIndex) ||
-		strings.HasSuffix(path, "/resource/plugins/"+PluginID+resourceIndex) ||
-		strings.HasSuffix(path, resourceIndex)
+	return hasResourceSuffix(path, resourceAPIKeys, legacyResourceAPIKeys, resourceIndex)
 }
 
 func isSettingsResource(path string) bool {
 	path = strings.TrimSpace(path)
-	return strings.HasSuffix(path, "/v0/resource/plugins/"+PluginID+resourceSettings) ||
-		strings.HasSuffix(path, "/resource/plugins/"+PluginID+resourceSettings) ||
-		strings.HasSuffix(path, resourceSettings)
+	return hasResourceSuffix(path, resourceSettings, legacyResourceSettings)
+}
+
+func isUsageResource(path string) bool {
+	path = strings.TrimSpace(path)
+	return hasResourceSuffix(path, resourceUsage, legacyResourceUsage)
+}
+
+func hasResourceSuffix(path string, suffixes ...string) bool {
+	for _, suffix := range suffixes {
+		if strings.HasSuffix(path, "/v0/resource/plugins/"+PluginID+suffix) ||
+			strings.HasSuffix(path, "/resource/plugins/"+PluginID+suffix) ||
+			strings.HasSuffix(path, suffix) {
+			return true
+		}
+	}
+	return false
 }

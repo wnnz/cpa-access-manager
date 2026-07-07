@@ -119,18 +119,22 @@ type UsageDetail struct {
 }
 
 type UsageEntry struct {
-	ID                 int64       `json:"id"`
-	KeyID              string      `json:"key_id"`
-	AuthID             string      `json:"auth_id,omitempty"`
-	AuthIndex          string      `json:"auth_index,omitempty"`
-	Provider           string      `json:"provider,omitempty"`
-	ProviderInstanceID string      `json:"provider_instance_id,omitempty"`
-	Model              string      `json:"model,omitempty"`
-	Alias              string      `json:"alias,omitempty"`
-	Detail             UsageDetail `json:"detail"`
-	USD                float64     `json:"usd"`
-	Failed             bool        `json:"failed,omitempty"`
-	CreatedAt          time.Time   `json:"created_at"`
+	ID                  int64       `json:"id"`
+	KeyID               string      `json:"key_id"`
+	RequestID           string      `json:"request_id,omitempty"`
+	RequestResource     string      `json:"request_resource,omitempty"`
+	AuthID              string      `json:"auth_id,omitempty"`
+	AuthIndex           string      `json:"auth_index,omitempty"`
+	Provider            string      `json:"provider,omitempty"`
+	ProviderInstanceID  string      `json:"provider_instance_id,omitempty"`
+	Model               string      `json:"model,omitempty"`
+	Alias               string      `json:"alias,omitempty"`
+	Detail              UsageDetail `json:"detail"`
+	FirstTokenLatencyMS int64       `json:"first_token_latency_ms,omitempty"`
+	TotalLatencyMS      int64       `json:"total_latency_ms,omitempty"`
+	USD                 float64     `json:"usd"`
+	Failed              bool        `json:"failed,omitempty"`
+	CreatedAt           time.Time   `json:"created_at"`
 }
 
 type UsageSums struct {

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -162,6 +163,11 @@ func (a *App) managementRegistration() ManagementRegistrationResponse {
 				Description: "管理下游 API Key、关联资源和额度。",
 			},
 			{
+				Path:        resourceUsage,
+				Menu:        "使用统计",
+				Description: "查看请求日志、Token 明细、费用和响应耗时。",
+			},
+			{
 				Path:        resourceSettings,
 				Menu:        "设置",
 				Description: "配置管理密钥和模型计费规则。",
@@ -279,13 +285,39 @@ func (a *App) handleUsage(raw []byte) ([]byte, error) {
 		return OKEnvelope(map[string]any{})
 	}
 	_, err = store.RecordUsage(context.Background(), access.UsageEntry{
-		KeyID:     key.ID,
-		AuthID:    strings.TrimSpace(req.AuthID),
-		AuthIndex: strings.TrimSpace(req.AuthIndex),
-		Provider:  req.Provider,
-		Model:     firstNonEmpty(req.Model, req.Alias),
-		Alias:     req.Alias,
-		Failed:    req.Failed,
+		KeyID:           key.ID,
+		RequestID:       firstNonEmpty(req.RequestID, req.RequestIDAlt, metadataString(req.Metadata, "request_id", "id", "response_id")),
+		RequestResource: firstNonEmpty(req.RequestResource, req.RequestResourceAlt, metadataString(req.Metadata, "request_resource", "resource", "target", "path", "url")),
+		AuthID:          strings.TrimSpace(req.AuthID),
+		AuthIndex:       strings.TrimSpace(req.AuthIndex),
+		Provider:        req.Provider,
+		Model:           firstNonEmpty(req.Model, req.Alias),
+		Alias:           req.Alias,
+		FirstTokenLatencyMS: firstPositiveInt64(
+			req.FirstTokenLatencyMS,
+			req.FirstTokenLatencyMSAlt,
+			req.TTFTMS,
+			req.TTFTMSAlt,
+			durationMillis(req.TTFT),
+			durationMillis(req.TTFTAlt),
+			metadataMillis(req.Metadata, "first_token_latency_ms", "ttft_ms", "first_token_ms"),
+			metadataDurationMillis(req.Metadata, "TTFT", "ttft"),
+		),
+		TotalLatencyMS: firstPositiveInt64(
+			req.TotalLatencyMS,
+			req.TotalLatencyMSAlt,
+			req.LatencyMS,
+			req.LatencyMSAlt,
+			req.DurationMS,
+			req.DurationMSAlt,
+			durationMillis(req.Latency),
+			durationMillis(req.LatencyAlt),
+			durationMillis(req.Duration),
+			durationMillis(req.DurationAlt),
+			metadataMillis(req.Metadata, "total_latency_ms", "latency_ms", "duration_ms", "elapsed_ms"),
+			metadataDurationMillis(req.Metadata, "Latency", "latency", "Duration", "duration"),
+		),
+		Failed: req.Failed,
 		Detail: access.UsageDetail{
 			InputTokens:         req.Detail.InputTokens,
 			OutputTokens:        req.Detail.OutputTokens,
@@ -343,6 +375,124 @@ func keyIDFromMetadata(meta map[string]any) string {
 		}
 	}
 	return ""
+}
+
+func metadataString(meta map[string]any, keys ...string) string {
+	for _, key := range keys {
+		if value, ok := meta[key]; ok {
+			if s := strings.TrimSpace(fmt.Sprint(value)); s != "" && s != "<nil>" {
+				return s
+			}
+		}
+	}
+	return ""
+}
+
+func metadataMillis(meta map[string]any, keys ...string) int64 {
+	for _, key := range keys {
+		value, ok := meta[key]
+		if !ok {
+			continue
+		}
+		if millis := numericMillis(value); millis > 0 {
+			return millis
+		}
+	}
+	return 0
+}
+
+func metadataDurationMillis(meta map[string]any, keys ...string) int64 {
+	for _, key := range keys {
+		value, ok := meta[key]
+		if !ok {
+			continue
+		}
+		if millis := durationMillis(value); millis > 0 {
+			return millis
+		}
+	}
+	return 0
+}
+
+func numericMillis(value any) int64 {
+	switch v := value.(type) {
+	case int64:
+		return v
+	case int:
+		return int64(v)
+	case float64:
+		if v > 0 {
+			return int64(v + 0.5)
+		}
+	case json.Number:
+		n, _ := v.Float64()
+		if n > 0 {
+			return int64(n + 0.5)
+		}
+	case string:
+		n, err := strconv.ParseFloat(strings.TrimSpace(v), 64)
+		if err == nil && n > 0 {
+			return int64(n + 0.5)
+		}
+	}
+	return 0
+}
+
+func durationMillis(value any) int64 {
+	switch v := value.(type) {
+	case nil:
+		return 0
+	case int64:
+		return nanosToMillis(v)
+	case int:
+		return nanosToMillis(int64(v))
+	case float64:
+		if v > 0 {
+			return nanosToMillis(int64(v + 0.5))
+		}
+	case json.Number:
+		n, _ := v.Int64()
+		if n > 0 {
+			return nanosToMillis(n)
+		}
+		f, _ := v.Float64()
+		if f > 0 {
+			return nanosToMillis(int64(f + 0.5))
+		}
+	case string:
+		s := strings.TrimSpace(v)
+		if s == "" {
+			return 0
+		}
+		if d, err := time.ParseDuration(s); err == nil {
+			return nanosToMillis(int64(d))
+		}
+		n, err := strconv.ParseFloat(s, 64)
+		if err == nil && n > 0 {
+			return nanosToMillis(int64(n + 0.5))
+		}
+	}
+	return 0
+}
+
+func nanosToMillis(nanos int64) int64 {
+	if nanos <= 0 {
+		return 0
+	}
+	millis := (nanos + int64(time.Millisecond)/2) / int64(time.Millisecond)
+	if millis <= 0 {
+		return 1
+	}
+	return millis
+}
+
+func firstPositiveInt64(values ...int64) int64 {
+	for _, value := range values {
+		if value > 0 {
+			return value
+		}
+	}
+	return 0
 }
 
 func bearerToken(headers http.Header) string {

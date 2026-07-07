@@ -412,12 +412,123 @@
       box-shadow: 0 0 0 4px rgba(201, 100, 66, 0.16);
     }
 
+    .styled-select {
+      position: relative;
+      display: inline-flex;
+      min-width: 156px;
+      vertical-align: middle;
+    }
+
+    .styled-select select {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .styled-select-trigger {
+      width: 100%;
+      height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 0 10px 0 12px;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      color: var(--fg);
+      background: var(--surface);
+      box-shadow: none;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+      transition:
+        border-color var(--motion-fast) var(--ease-out),
+        box-shadow var(--motion-fast) var(--ease-out),
+        background-color var(--motion-fast) var(--ease-out);
+    }
+
+    .styled-select-value {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .styled-select-trigger svg {
+      width: 14px;
+      height: 14px;
+      flex: 0 0 auto;
+      color: #5f574d;
+      transition: transform var(--motion-fast) var(--ease-out);
+    }
+
+    .styled-select-trigger:hover,
+    .styled-select-trigger:focus-visible,
+    .styled-select-trigger[aria-expanded="true"] {
+      border-color: #c96442;
+      box-shadow: 0 0 0 4px rgba(201, 100, 66, 0.16);
+      outline: none;
+    }
+
+    .styled-select-trigger[aria-expanded="true"] svg {
+      transform: rotate(180deg);
+    }
+
+    .styled-select-menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      z-index: 12;
+      min-width: 100%;
+      width: max-content;
+      display: grid;
+      gap: 2px;
+      padding: 5px;
+      border: 1px solid #d8d0c4;
+      border-radius: 10px;
+      background: #fffefd;
+      box-shadow: 0 16px 34px rgba(60, 47, 34, 0.16);
+    }
+
+    .styled-select-menu[hidden] {
+      display: none;
+    }
+
+    .styled-select-option {
+      height: 30px;
+      border: 0;
+      border-radius: 7px;
+      color: #4f463d;
+      background: transparent;
+      font-size: 13px;
+      font-weight: 800;
+      text-align: left;
+      padding: 0 10px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition:
+        color var(--motion-fast) var(--ease-out),
+        background-color var(--motion-fast) var(--ease-out);
+    }
+
+    .styled-select-option:hover,
+    .styled-select-option:focus-visible {
+      background: #f1ebe2;
+      outline: none;
+    }
+
+    .styled-select-option[aria-selected="true"] {
+      color: #fffefd;
+      background: #c96442;
+    }
+
     .table-wrap {
       margin-top: 24px;
       overflow-x: auto;
       border: 1px solid var(--border);
       border-radius: 10px;
-      background: #f7f4ee;
+      background: var(--surface-muted);
     }
 
     table {
@@ -440,7 +551,7 @@
     thead { display: table-header-group; }
 
     tbody tr {
-      background: var(--surface-muted);
+      background: var(--surface);
       transition:
         background-color var(--motion-fast) var(--ease-out);
     }
@@ -479,7 +590,7 @@
     }
 
     tbody tr:hover {
-      background: #e9e6df;
+      background: #f4f0e8;
     }
 
     .key-cell {
@@ -887,6 +998,11 @@
       height: 36px;
     }
 
+    .field .styled-select {
+      width: 100%;
+      min-width: 0;
+    }
+
     .resource-picker {
       display: grid;
       gap: 8px;
@@ -991,6 +1107,8 @@
       .tab,
       input,
       select,
+      .styled-select-trigger,
+      .styled-select-option,
       .bar span,
       .drawer-backdrop,
       .drawer,
@@ -1044,6 +1162,10 @@
         width: 100%;
       }
 
+      .right-tools .styled-select {
+        width: 100%;
+      }
+
       .top-actions {
         width: 100%;
         margin-left: 0;
@@ -1058,63 +1180,26 @@
       .tab { flex: 0 0 auto; }
 
       .form-grid { grid-template-columns: 1fr; }
-    }
-  
 
+    }
     .notice {
       display: none;
-      margin: 0 0 18px;
+      margin: 0 0 14px;
       padding: 12px 14px;
-      border: 1px solid var(--border);
+      border: 1px solid rgba(15, 159, 103, 0.26);
       border-radius: 10px;
-      background: rgba(253, 251, 248, 0.92);
+      background: rgba(15, 159, 103, 0.08);
       color: var(--fg);
+      font-size: 13px;
+      line-height: 1.5;
     }
 
     .notice.show { display: block; }
     .notice.error {
       border-color: rgba(212, 85, 73, 0.36);
-      background: var(--danger-soft);
+      background: rgba(212, 85, 73, 0.1);
+      color: #8e2f27;
     }
-
-    .notice-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .plain-key {
-      display: block;
-      margin-top: 10px;
-      padding: 10px;
-      overflow: auto;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: #fff;
-      color: var(--fg);
-      font-family: var(--mono);
-      font-size: 12px;
-      white-space: nowrap;
-    }
-
-    .quota-empty {
-      color: var(--muted);
-      font-size: 13px;
-    }
-
-    .resource-option.is-empty {
-      cursor: default;
-      color: var(--muted);
-    }
-
-    .resource-option.is-empty:hover {
-      border-color: var(--border);
-      background: var(--surface);
-      transform: none;
-    }
-
   </style>
 </head>
 <body>
@@ -1141,6 +1226,10 @@
           </select>
           <select id="typeFilter" data-od-id="ai-type-filter">
             <option value="all">全部 AI 类型</option>
+            <option value="OpenAI">OpenAI</option>
+            <option value="Anthropic">Anthropic</option>
+            <option value="Gemini">Gemini</option>
+            <option value="Azure OpenAI">Azure OpenAI</option>
           </select>
           <select id="resourceFilter" data-od-id="resource-filter">
             <option value="all">全部关联资源</option>
@@ -1227,31 +1316,35 @@
 
           <div class="field quota-row-field">
             <label for="aiType">AI 类型</label>
-            <select id="aiType" required=""></select>
+            <select id="aiType" required="">
+              <option value="OpenAI">OpenAI</option>
+              <option value="Anthropic">Anthropic</option>
+              <option value="Gemini">Gemini</option>
+              <option value="Azure OpenAI">Azure OpenAI</option>
+            </select>
           </div>
-
 
           <div class="field quota-row-field">
             <label for="quotaFiveHourInput">5 小时额度（USD）</label>
-            <input id="quotaFiveHourInput" type="number" min="0" max="50000" step="0.0001" placeholder="留空不限额">
+            <input id="quotaFiveHourInput" type="number" min="1" max="50000" step="1" placeholder="留空不限额">
             <div id="quotaError" class="error" role="alert" aria-hidden="true">已填写的额度必须大于 0 且不超过 $50,000；同时需满足总额度不小于周额度，周额度不小于 5 小时额度。</div>
           </div>
 
           <div class="field">
             <label for="quotaWeekInput">周额度（USD）</label>
-            <input id="quotaWeekInput" type="number" min="0" max="50000" step="0.0001" placeholder="留空不限额">
+            <input id="quotaWeekInput" type="number" min="1" max="50000" step="1" placeholder="留空不限额">
           </div>
 
           <div class="field">
             <label for="quotaTotalInput">总额度（USD）</label>
-            <input id="quotaTotalInput" type="number" min="0" max="50000" step="0.0001" placeholder="留空不限额">
+            <input id="quotaTotalInput" type="number" min="1" max="50000" step="1" placeholder="留空不限额">
           </div>
 
           <div class="field full">
             <label>关联资源（可多选）</label>
             <div class="resource-picker" id="resourcePicker" data-od-id="resource-picker"></div>
-            <div id="resourceError" class="error" role="alert" aria-hidden="true">至少选择一个认证文件或 AI 提供商。</div>
-            <span class="helper" id="dependencyHint">请选择 AI 类型。</span>
+            <div id="resourceError" class="error" role="alert" aria-hidden="true">至少选择一个关联资源。</div>
+            <span class="helper" id="dependencyHint">当前选择 OpenAI，只展示 OpenAI 类型下的资源。</span>
           </div>
         </form>
       </div>
@@ -1314,6 +1407,70 @@
       autoRefreshMenu: $("autoRefreshMenu"),
       autoRefreshOptions: Array.from(document.querySelectorAll(".auto-refresh-option"))
     };
+
+    function closeStyledSelects(exceptMenu = null) {
+      document.querySelectorAll(".styled-select-menu").forEach(menu => {
+        if (menu === exceptMenu) return;
+        menu.hidden = true;
+        menu.closest(".styled-select")?.querySelector(".styled-select-trigger")?.setAttribute("aria-expanded", "false");
+      });
+    }
+    function refreshStyledSelect(select) {
+      const shell = select.closest(".styled-select");
+      if (!shell) return;
+      const menu = shell.querySelector(".styled-select-menu");
+      const value = shell.querySelector(".styled-select-value");
+      const selected = select.options[select.selectedIndex];
+      value.textContent = selected ? selected.textContent : "";
+      menu.innerHTML = "";
+      Array.from(select.options).forEach(option => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "styled-select-option";
+        button.setAttribute("role", "option");
+        button.setAttribute("aria-selected", option.selected ? "true" : "false");
+        button.textContent = option.textContent;
+        button.disabled = option.disabled;
+        button.addEventListener("click", () => {
+          select.value = option.value;
+          select.dispatchEvent(new Event("change", { bubbles: true }));
+          closeStyledSelects();
+          shell.querySelector(".styled-select-trigger").focus({ preventScroll: true });
+        });
+        menu.appendChild(button);
+      });
+    }
+    function initStyledSelects(root = document) {
+      root.querySelectorAll("select").forEach(select => {
+        if (select.closest(".styled-select")) {
+          refreshStyledSelect(select);
+          return;
+        }
+        const shell = document.createElement("span");
+        shell.className = "styled-select";
+        select.parentNode.insertBefore(shell, select);
+        shell.appendChild(select);
+        const trigger = document.createElement("button");
+        trigger.type = "button";
+        trigger.className = "styled-select-trigger";
+        trigger.setAttribute("aria-haspopup", "listbox");
+        trigger.setAttribute("aria-expanded", "false");
+        trigger.innerHTML = `<span class="styled-select-value"></span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="m4 6 4 4 4-4"></path></svg>`;
+        const menu = document.createElement("div");
+        menu.className = "styled-select-menu";
+        menu.setAttribute("role", "listbox");
+        menu.hidden = true;
+        shell.append(trigger, menu);
+        trigger.addEventListener("click", () => {
+          const shouldOpen = menu.hidden;
+          closeStyledSelects(menu);
+          menu.hidden = !shouldOpen;
+          trigger.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+        });
+        select.addEventListener("change", () => refreshStyledSelect(select));
+        refreshStyledSelect(select);
+      });
+    }
 
     function base() { return session.apiBase || location.origin; }
     function secret() { return session.managementKey; }
@@ -1492,6 +1649,7 @@
       if (!includeAll && safeCurrent && !list.includes(safeCurrent)) options += `<option value="${esc(safeCurrent)}">${esc(typeLabel(safeCurrent))}</option>`;
       select.innerHTML = options;
       select.value = includeAll ? (safeCurrent || "all") : (safeCurrent || list[0] || "");
+      refreshStyledSelect(select);
     }
     function authFileByID(id) {
       const target = asString(id);
@@ -1687,6 +1845,7 @@
       });
       els.resourceFilter.innerHTML = `<option value="all">全部关联资源</option>` + unique.map(ref => `<option value="${esc(ref.key)}">${esc(ref.label)}</option>`).join("");
       els.resourceFilter.value = unique.some(ref => ref.key === current) ? current : "all";
+      refreshStyledSelect(els.resourceFilter);
     }
     function renderRows() {
       const term = normalize(els.search.value);
@@ -1968,8 +2127,10 @@
     document.addEventListener("keydown", event => {
       if (event.key === "Escape" && els.drawer.classList.contains("open")) closeDrawer();
       if (event.key === "Escape" && !els.autoRefreshMenu.hidden) closeAutoRefreshMenu();
+      if (event.key === "Escape") closeStyledSelects();
     });
     document.addEventListener("click", event => {
+      if (!event.target.closest(".styled-select")) closeStyledSelects();
       if (event.target.closest(".row-actions")) return;
       clearPendingDelete();
     });
@@ -2014,9 +2175,9 @@
     });
 
     initSession();
+    initStyledSelects();
     if (secret()) load(false);
     else setNotice("没有找到可复用的 CPA 管理登录。请从 CPA 管理后台的插件页面打开。", true);
   </script>
-
-
-</body></html>
+</body>
+</html>

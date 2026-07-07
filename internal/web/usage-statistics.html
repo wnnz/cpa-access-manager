@@ -1,0 +1,1269 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>使用统计</title>
+  <style>
+    :root {
+      --bg: #f7f5f1;
+      --surface: #fdfbf8;
+      --surface-muted: #f0eee8;
+      --fg: #1d1b17;
+      --muted: #777168;
+      --subtle: #a39c91;
+      --border: #e5dfd6;
+      --border-strong: #d8d0c5;
+      --primary: #12b981;
+      --primary-hover: #079467;
+      --primary-soft: #e5f8f0;
+      --accent: #c96442;
+      --accent-hover: #b35739;
+      --danger: #d45549;
+      --radius: 10px;
+      --shadow: 0 14px 34px rgba(37, 31, 22, 0.08);
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+      --mono: "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
+      --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+      --motion-fast: 140ms;
+      --motion-base: 220ms;
+      color-scheme: light;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 18% 0%, rgba(255, 255, 255, 0.74), transparent 32%),
+        var(--bg);
+      color: var(--fg);
+      font-family: var(--font);
+      font-size: 14px;
+    }
+
+    button,
+    input,
+    select { font: inherit; }
+
+    button { border: 0; cursor: pointer; }
+
+    .page {
+      width: min(1552px, calc(100vw - 56px));
+      margin: 0 auto;
+      padding: 18px 0 36px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      min-height: 52px;
+      margin-bottom: 16px;
+      padding: 9px 14px;
+    }
+
+    .title h1 {
+      margin: 0;
+      color: var(--fg);
+      font-size: 18px;
+      line-height: 1.2;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+
+    .title p {
+      display: inline-flex;
+      margin: 7px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .top-actions,
+    .filter-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 0 13px;
+      border-radius: 8px;
+      border: 1px solid var(--border-strong);
+      background: #ebe8e2;
+      color: var(--fg);
+      text-decoration: none;
+      font-weight: 700;
+      white-space: nowrap;
+      transition:
+        color var(--motion-fast) var(--ease-out),
+        background-color var(--motion-fast) var(--ease-out),
+        border-color var(--motion-fast) var(--ease-out),
+        transform var(--motion-fast) var(--ease-out);
+    }
+
+    .btn:hover {
+      border-color: #cfc7bc;
+      color: var(--fg);
+      background: #e2ded6;
+      transform: translateY(-1px);
+    }
+
+    .btn:active { transform: translateY(0); }
+
+    .btn.primary {
+      color: #fff;
+      border-color: var(--accent);
+      background: var(--accent);
+    }
+
+    .btn.primary:hover {
+      color: #fff;
+      border-color: var(--accent-hover);
+      background: var(--accent-hover);
+    }
+
+    .btn svg,
+    .metric-icon svg {
+      width: 16px;
+      height: 16px;
+      stroke-width: 2;
+    }
+
+    .refresh-group {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .refresh-countdown {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .refresh-countdown[hidden] {
+      display: none;
+    }
+
+    .refresh-countdown.busy {
+      color: #087452;
+      font-family: var(--font);
+    }
+
+    .refresh-action {
+      display: inline-flex;
+      align-items: stretch;
+    }
+
+    .refresh-action #refreshUsage {
+      border-top-right-radius: 0;
+      border-bottom-right-radius: 0;
+    }
+
+    .refresh-action .auto-refresh-wrap {
+      margin-left: -1px;
+    }
+
+    .refresh-action .auto-refresh-toggle {
+      width: 34px;
+      padding: 0;
+      border-top-left-radius: 0;
+      border-bottom-left-radius: 0;
+    }
+
+    .refresh-action #refreshUsage:hover,
+    .refresh-action .auto-refresh-toggle:hover {
+      position: relative;
+      z-index: 1;
+    }
+
+    .auto-refresh-wrap {
+      position: relative;
+      display: inline-flex;
+    }
+
+    .auto-refresh-toggle svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .auto-refresh-menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      z-index: 30;
+      display: grid;
+      gap: 2px;
+      min-width: 132px;
+      padding: 6px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .auto-refresh-menu[hidden] {
+      display: none;
+    }
+
+    .auto-refresh-option {
+      height: 30px;
+      padding: 0 9px;
+      border-radius: 6px;
+      color: var(--fg);
+      background: transparent;
+      text-align: left;
+      font-weight: 700;
+    }
+
+    .auto-refresh-option:hover,
+    .auto-refresh-option.active {
+      background: #eee9e1;
+    }
+
+    select,
+    input {
+      height: 38px;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--fg);
+      outline: none;
+      padding: 0 34px 0 11px;
+      transition:
+        border-color var(--motion-fast) var(--ease-out),
+        box-shadow var(--motion-fast) var(--ease-out);
+    }
+
+    select:focus,
+    input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px rgba(201, 100, 66, 0.16);
+    }
+
+    .styled-select {
+      position: relative;
+      display: inline-flex;
+      min-width: 122px;
+      vertical-align: middle;
+    }
+
+    .styled-select select {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .styled-select-trigger {
+      width: 100%;
+      height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 0 10px 0 12px;
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      color: var(--fg);
+      background: var(--surface);
+      box-shadow: none;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+      transition:
+        border-color var(--motion-fast) var(--ease-out),
+        box-shadow var(--motion-fast) var(--ease-out),
+        background-color var(--motion-fast) var(--ease-out);
+    }
+
+    .styled-select-value {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .styled-select-trigger svg {
+      width: 14px;
+      height: 14px;
+      flex: 0 0 auto;
+      color: #5f574d;
+      transition: transform var(--motion-fast) var(--ease-out);
+    }
+
+    .styled-select-trigger:hover,
+    .styled-select-trigger:focus-visible,
+    .styled-select-trigger[aria-expanded="true"] {
+      border-color: #c96442;
+      box-shadow: 0 0 0 4px rgba(201, 100, 66, 0.16);
+      outline: none;
+    }
+
+    .styled-select-trigger[aria-expanded="true"] svg {
+      transform: rotate(180deg);
+    }
+
+    .styled-select-menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      z-index: 12;
+      min-width: 100%;
+      width: max-content;
+      display: grid;
+      gap: 2px;
+      padding: 5px;
+      border: 1px solid #d8d0c4;
+      border-radius: 10px;
+      background: #fffefd;
+      box-shadow: 0 16px 34px rgba(60, 47, 34, 0.16);
+    }
+
+    .styled-select-menu[hidden] {
+      display: none;
+    }
+
+    .styled-select-option {
+      height: 30px;
+      border: 0;
+      border-radius: 7px;
+      color: #4f463d;
+      background: transparent;
+      font-size: 13px;
+      font-weight: 800;
+      text-align: left;
+      padding: 0 10px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition:
+        color var(--motion-fast) var(--ease-out),
+        background-color var(--motion-fast) var(--ease-out);
+    }
+
+    .styled-select-option:hover,
+    .styled-select-option:focus-visible {
+      background: #f1ebe2;
+      outline: none;
+    }
+
+    .styled-select-option[aria-selected="true"] {
+      color: #fffefd;
+      background: #c96442;
+    }
+
+    .filter-bar {
+      min-height: 78px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 14px;
+      padding: 18px 18px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(253, 251, 248, 0.9);
+      box-shadow: var(--shadow);
+    }
+
+    .filter-controls {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .filter-label {
+      color: var(--fg);
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+
+    .metric-card,
+    .panel {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(253, 251, 248, 0.9);
+      box-shadow: 0 8px 22px rgba(37, 31, 22, 0.05);
+    }
+
+    .metric-card {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      align-items: center;
+      gap: 12px;
+      min-height: 96px;
+      padding: 18px;
+    }
+
+    .metric-icon {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border-radius: 10px;
+      background: var(--metric-bg);
+      color: var(--metric-color);
+    }
+
+    .metric-label {
+      color: #5f574d;
+      font-size: 12px;
+      line-height: 1.2;
+      font-weight: 700;
+    }
+
+    .metric-value {
+      margin-top: 4px;
+      color: var(--fg);
+      font-family: var(--mono);
+      font-size: 23px;
+      line-height: 1.1;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .metric-sub {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .metric-sub strong {
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .content-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.55fr) minmax(340px, 0.8fr);
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+
+    .panel {
+      overflow: hidden;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    .panel-head h2 {
+      margin: 0;
+      color: var(--fg);
+      font-size: 16px;
+      line-height: 1.3;
+      font-weight: 700;
+    }
+
+    .panel-head p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .panel-body {
+      padding: 18px 20px 20px;
+      background: var(--bg);
+    }
+
+    .trend-wrap {
+      position: relative;
+      min-height: 280px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background:
+        linear-gradient(#efeae2 1px, transparent 1px) 0 0 / 100% 56px,
+        var(--surface);
+      overflow: hidden;
+    }
+
+    .trend-svg {
+      display: block;
+      width: 100%;
+      height: 280px;
+    }
+
+    .trend-line {
+      fill: none;
+      stroke: var(--primary);
+      stroke-width: 3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .trend-area {
+      fill: rgba(18, 185, 129, 0.12);
+    }
+
+    .axis-labels {
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      color: var(--muted);
+      font-size: 12px;
+      font-family: var(--mono);
+      pointer-events: none;
+    }
+
+    .side-stack {
+      display: grid;
+      gap: 14px;
+    }
+
+    .share-list,
+    .ranking-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .share-row,
+    .ranking-row {
+      display: grid;
+      gap: 7px;
+    }
+
+    .row-meta {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .row-meta strong {
+      color: var(--fg);
+      font-size: 13px;
+    }
+
+    .bar {
+      height: 8px;
+      border-radius: 999px;
+      background: #e8e1d7;
+      overflow: hidden;
+    }
+
+    .bar span {
+      display: block;
+      width: var(--value);
+      height: 100%;
+      border-radius: inherit;
+      background: var(--bar-color, var(--primary));
+      transition: width var(--motion-base) var(--ease-out);
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface-muted);
+    }
+
+    table {
+      width: 100%;
+      min-width: 1380px;
+      border-collapse: separate;
+      border-spacing: 0;
+      table-layout: fixed;
+    }
+
+    th {
+      height: 38px;
+      padding: 0 12px;
+      color: #5f574d;
+      background: #e9e5dc;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      vertical-align: middle;
+    }
+
+    tbody tr:hover td { background: #f4f0e8; }
+    tbody tr:last-child td { border-bottom: 0; }
+
+    .name-cell strong {
+      display: block;
+      color: var(--fg);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    .name-cell span,
+    .provider-cell span {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .num {
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .status-text {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      z-index: 80;
+      transform: translate3d(-50%, 12px, 0);
+      opacity: 0;
+      pointer-events: none;
+      padding: 10px 13px;
+      border-radius: 6px;
+      color: #fff;
+      background: rgba(29, 27, 23, 0.92);
+      box-shadow: var(--shadow);
+      transition:
+        opacity 180ms var(--ease-out),
+        transform var(--motion-base) var(--ease-out);
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translate3d(-50%, 0, 0);
+    }
+
+    @media (max-width: 1120px) {
+      .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .content-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 760px) {
+      .page {
+        width: min(100vw - 28px, 1552px);
+        padding-top: 14px;
+      }
+
+      .topbar,
+      .filter-bar,
+      .panel-head {
+        align-items: stretch;
+        flex-direction: column;
+      }
+
+      .top-actions,
+      .filter-actions,
+      .filter-group {
+        justify-content: flex-start;
+      }
+
+      .filter-group .styled-select {
+        width: 100%;
+      }
+
+      .metric-grid { grid-template-columns: 1fr; }
+      .metric-card { min-height: 88px; }
+    }
+    .notice {
+      display: none;
+      margin: 0 0 14px;
+      padding: 12px 14px;
+      border: 1px solid rgba(15, 159, 103, 0.26);
+      border-radius: 10px;
+      background: rgba(15, 159, 103, 0.08);
+      color: var(--fg);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .notice.show { display: block; }
+    .notice.error {
+      border-color: rgba(212, 85, 73, 0.36);
+      background: rgba(212, 85, 73, 0.1);
+      color: #8e2f27;
+    }
+  </style>
+</head>
+<body>
+  <main class="page" data-od-id="usage-statistics-page">
+    <header class="topbar" data-od-id="usage-statistics-header">
+      <div class="title" data-od-id="usage-statistics-title-area">
+        <h1 data-od-id="usage-statistics-title">使用统计</h1>
+      </div>
+      <div class="top-actions" data-od-id="usage-statistics-top-actions"></div>
+    </header>
+
+    <div class="notice" id="notice" role="status" aria-live="polite"></div>
+
+    <section class="filter-bar" data-od-id="usage-filter-bar">
+      <div class="filter-controls" data-od-id="usage-filter-controls">
+        <div class="filter-group" data-od-id="time-range-filter-group">
+          <span class="filter-label">时间范围:</span>
+          <select id="timeRange" data-od-id="time-range-select" aria-label="时间范围">
+            <option value="24h">近24小时</option>
+            <option value="7d">近7天</option>
+            <option value="30d">近30天</option>
+          </select>
+        </div>
+        <div class="filter-group" data-od-id="granularity-filter-group">
+          <span class="filter-label">粒度:</span>
+          <select id="granularity" data-od-id="granularity-select" aria-label="统计粒度">
+            <option value="hour">按小时</option>
+            <option value="day">按天</option>
+          </select>
+        </div>
+      </div>
+      <div class="filter-actions" data-od-id="usage-filter-actions">
+        <div class="refresh-group" data-od-id="usage-refresh-control-group">
+          <span class="refresh-countdown" id="refreshCountdown" data-od-id="usage-refresh-countdown" hidden></span>
+          <div class="refresh-action" data-od-id="usage-refresh-split-button">
+            <button class="btn" id="refreshUsage" type="button" data-od-id="refresh-usage-button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path><path d="M3 21v-5h5"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M21 3v5h-5"></path></svg>
+              刷新
+            </button>
+            <div class="auto-refresh-wrap">
+              <button class="btn auto-refresh-toggle" id="autoRefreshToggle" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="自动刷新间隔" data-od-id="usage-auto-refresh-toggle">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 9 6 6 6-6"></path></svg>
+              </button>
+              <div class="auto-refresh-menu" id="autoRefreshMenu" role="menu" aria-label="自动刷新间隔" hidden data-od-id="usage-auto-refresh-menu">
+                <button class="auto-refresh-option active" type="button" role="menuitemradio" aria-checked="true" data-interval="0" data-od-id="usage-auto-refresh-none">不自动刷新</button>
+                <button class="auto-refresh-option" type="button" role="menuitemradio" aria-checked="false" data-interval="5" data-od-id="usage-auto-refresh-5s">5秒</button>
+                <button class="auto-refresh-option" type="button" role="menuitemradio" aria-checked="false" data-interval="10" data-od-id="usage-auto-refresh-10s">10秒</button>
+                <button class="auto-refresh-option" type="button" role="menuitemradio" aria-checked="false" data-interval="15" data-od-id="usage-auto-refresh-15s">15秒</button>
+                <button class="auto-refresh-option" type="button" role="menuitemradio" aria-checked="false" data-interval="30" data-od-id="usage-auto-refresh-30s">30秒</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="metric-grid" aria-label="用量概览" data-od-id="usage-metric-grid">
+      <article class="metric-card" data-od-id="metric-total-requests">
+        <div class="metric-icon" style="--metric-bg:#e5edff;--metric-color:#3767f4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M7 3h7l4 4v14H7z"></path><path d="M14 3v5h5"></path><path d="M10 13h5"></path><path d="M10 17h7"></path></svg></div>
+        <div>
+          <div class="metric-label">总请求数</div>
+          <div class="metric-value" id="metricRequests">867</div>
+          <div class="metric-sub" id="metricRequestsSub">所选范围内</div>
+        </div>
+      </article>
+      <article class="metric-card" data-od-id="metric-total-tokens">
+        <div class="metric-icon" style="--metric-bg:#fff0c9;--metric-color:#f59e0b"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9z"></path><path d="m12 12 8-4.5"></path><path d="M12 12v9"></path><path d="M12 12 4 7.5"></path></svg></div>
+        <div>
+          <div class="metric-label">总 Token</div>
+          <div class="metric-value" id="metricTokens">101.84M</div>
+          <div class="metric-sub" id="metricTokensSub">输入: 7.78M / 输出: 537.74K / 缓存: 93.52M</div>
+        </div>
+      </article>
+      <article class="metric-card" data-od-id="metric-total-cost">
+        <div class="metric-icon" style="--metric-bg:#ddf8e8;--metric-color:#0f9f67"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="8"></circle><path d="M12 7v10"></path><path d="M15 9.5a3 3 0 0 0-5.2-1.2 2.1 2.1 0 0 0 .8 3.2l3 1a2.1 2.1 0 0 1 .8 3.2A3 3 0 0 1 9 14.5"></path></svg></div>
+        <div>
+          <div class="metric-label">总消费</div>
+          <div class="metric-value" id="metricCost">$100.0634</div>
+          <div class="metric-sub" id="metricCostSub"><strong>成本 $100.0634</strong> · 标准 $100.0634</div>
+        </div>
+      </article>
+      <article class="metric-card" data-od-id="metric-average-latency">
+        <div class="metric-icon" style="--metric-bg:#f1defd;--metric-color:#9f45ff"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="8"></circle><path d="M12 7v5l3 2"></path></svg></div>
+        <div>
+          <div class="metric-label">平均首字耗时 / 平均耗时</div>
+          <div class="metric-value"><span id="metricFirstLatency">--</span> / <span id="metricLatency">17.52s</span></div>
+          <div class="metric-sub" id="metricLatencySub">首字响应 / 完整响应</div>
+        </div>
+      </article>
+    </section>
+
+    <section class="panel" data-od-id="usage-detail-panel">
+      <div class="panel-head">
+        <div>
+          <h2>请求日志</h2>
+          <p>每行代表一次请求，用于排查单次调用的来源、费用与响应耗时。</p>
+        </div>
+        <span class="status-text" id="detailSummary">5 条请求 · 按时间倒序</span>
+      </div>
+      <div class="panel-body">
+        <div class="table-wrap" data-od-id="usage-detail-table-wrap">
+          <table data-od-id="usage-detail-table">
+            <thead>
+              <tr>
+                <th style="width: 150px;">请求时间</th>
+                <th style="width: 230px;">请求 / API Key</th>
+                <th style="width: 190px;">供应商 / 模型</th>
+                <th style="width: 190px;">请求资源</th>
+                <th style="width: 110px;">输入 Token</th>
+                <th style="width: 110px;">读取缓存</th>
+                <th style="width: 110px;">输出 Token</th>
+                <th style="width: 110px;">消费</th>
+                <th style="width: 110px;">首字耗时</th>
+                <th style="width: 110px;">完整耗时</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody id="usageRows"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" data-od-id="usage-toast" role="status" aria-live="polite" aria-atomic="true">已刷新</div>
+
+  <script>
+    const api = "/v0/management/plugins/cpa-toolkit";
+    const legacySecretStorageKeys = ["cpa-toolkit.management-key", "cpa-access-manager.management-key"];
+    const sessionSecretStorageKey = "cpa-toolkit.management-key.session";
+    const legacySessionSecretStorageKey = "cpa-access-manager.management-key.session";
+    const cpaAuthStorageKey = "cli-proxy-auth";
+    const cpaSecurePrefix = "enc::v1::";
+    const cpaSecureSalt = "cli-proxy-api-webui::secure-storage";
+    const $ = id => document.getElementById(id);
+    const session = { apiBase: "", managementKey: "" };
+    const state = { keys: [], resources: [], usage: [] };
+    let toastTimer = null;
+    let autoRefreshInterval = 0;
+    let autoRefreshRemaining = 0;
+    let autoRefreshTimer = null;
+
+    const els = {
+      notice: $("notice"),
+      timeRange: $("timeRange"),
+      granularity: $("granularity"),
+      rangeSummary: $("rangeSummary"),
+      refresh: $("refreshUsage"),
+      refreshCountdown: $("refreshCountdown"),
+      autoRefreshToggle: $("autoRefreshToggle"),
+      autoRefreshMenu: $("autoRefreshMenu"),
+      autoRefreshOptions: Array.from(document.querySelectorAll(".auto-refresh-option")),
+      requests: $("metricRequests"),
+      requestsSub: $("metricRequestsSub"),
+      tokens: $("metricTokens"),
+      tokensSub: $("metricTokensSub"),
+      cost: $("metricCost"),
+      costSub: $("metricCostSub"),
+      firstLatency: $("metricFirstLatency"),
+      latency: $("metricLatency"),
+      latencySub: $("metricLatencySub"),
+      detailSummary: $("detailSummary"),
+      rows: $("usageRows"),
+      toast: $("toast")
+    };
+
+    function closeStyledSelects(exceptMenu = null) {
+      document.querySelectorAll(".styled-select-menu").forEach(menu => {
+        if (menu === exceptMenu) return;
+        menu.hidden = true;
+        menu.closest(".styled-select")?.querySelector(".styled-select-trigger")?.setAttribute("aria-expanded", "false");
+      });
+    }
+    function refreshStyledSelect(select) {
+      const shell = select.closest(".styled-select");
+      if (!shell) return;
+      const menu = shell.querySelector(".styled-select-menu");
+      const value = shell.querySelector(".styled-select-value");
+      const selected = select.options[select.selectedIndex];
+      value.textContent = selected ? selected.textContent : "";
+      menu.innerHTML = "";
+      Array.from(select.options).forEach(option => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "styled-select-option";
+        button.setAttribute("role", "option");
+        button.setAttribute("aria-selected", option.selected ? "true" : "false");
+        button.textContent = option.textContent;
+        button.disabled = option.disabled;
+        button.addEventListener("click", () => {
+          select.value = option.value;
+          select.dispatchEvent(new Event("change", { bubbles: true }));
+          closeStyledSelects();
+          shell.querySelector(".styled-select-trigger").focus({ preventScroll: true });
+        });
+        menu.appendChild(button);
+      });
+    }
+    function initStyledSelects(root = document) {
+      root.querySelectorAll("select").forEach(select => {
+        if (select.closest(".styled-select")) {
+          refreshStyledSelect(select);
+          return;
+        }
+        const shell = document.createElement("span");
+        shell.className = "styled-select";
+        select.parentNode.insertBefore(shell, select);
+        shell.appendChild(select);
+        const trigger = document.createElement("button");
+        trigger.type = "button";
+        trigger.className = "styled-select-trigger";
+        trigger.setAttribute("aria-haspopup", "listbox");
+        trigger.setAttribute("aria-expanded", "false");
+        trigger.innerHTML = `<span class="styled-select-value"></span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="m4 6 4 4 4-4"></path></svg>`;
+        const menu = document.createElement("div");
+        menu.className = "styled-select-menu";
+        menu.setAttribute("role", "listbox");
+        menu.hidden = true;
+        shell.append(trigger, menu);
+        trigger.addEventListener("click", event => {
+          event.stopPropagation();
+          const shouldOpen = menu.hidden;
+          closeStyledSelects(menu);
+          menu.hidden = !shouldOpen;
+          trigger.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+        });
+        select.addEventListener("change", () => refreshStyledSelect(select));
+        refreshStyledSelect(select);
+      });
+    }
+
+    function base() { return session.apiBase || location.origin; }
+    function secret() { return session.managementKey; }
+    function asString(value) { return typeof value === "string" ? value.trim() : ""; }
+    function esc(value) {
+      return String(value ?? "").replace(/[&<>"']/g, ch => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[ch]));
+    }
+    function parseStoredJSON(value) {
+      if (typeof value !== "string") return value;
+      try { return JSON.parse(value); } catch { return value; }
+    }
+    function cpaSecureKeyBytes() {
+      return new TextEncoder().encode(`${cpaSecureSalt}|${window.location.host}|${navigator.userAgent}`);
+    }
+    function base64ToBytes(value) {
+      const text = atob(value);
+      const bytes = new Uint8Array(text.length);
+      for (let i = 0; i < text.length; i += 1) bytes[i] = text.charCodeAt(i);
+      return bytes;
+    }
+    function xorBytes(bytes, key) {
+      const out = new Uint8Array(bytes.length);
+      for (let i = 0; i < bytes.length; i += 1) out[i] = bytes[i] ^ key[i % key.length];
+      return out;
+    }
+    function decodeCPASecureValue(raw) {
+      if (!raw) return null;
+      let text = raw;
+      if (raw.startsWith(cpaSecurePrefix)) {
+        text = new TextDecoder().decode(xorBytes(base64ToBytes(raw.slice(cpaSecurePrefix.length)), cpaSecureKeyBytes()));
+      }
+      return parseStoredJSON(text);
+    }
+    function readStorageValue(storage, key) {
+      try {
+        const raw = storage.getItem(key);
+        return raw === null ? null : decodeCPASecureValue(raw);
+      } catch {
+        return null;
+      }
+    }
+    function isEmbeddedInPanel() {
+      try { return window.self !== window.top; } catch { return false; }
+    }
+    function extractPanelAuth(value) {
+      if (!value || typeof value !== "object") return null;
+      const stateValue = value.state && typeof value.state === "object" ? value.state : value;
+      const apiBase = asString(stateValue.apiBase);
+      const managementKey = asString(stateValue.managementKey);
+      return apiBase && managementKey ? { apiBase, managementKey } : null;
+    }
+    function readCPAPanelAuth() {
+      if (!isEmbeddedInPanel()) return null;
+      return extractPanelAuth(readStorageValue(window.localStorage, cpaAuthStorageKey));
+    }
+    function cleanupLegacySecret() {
+      for (const key of legacySecretStorageKeys) {
+        try { localStorage.removeItem(key); } catch {}
+      }
+    }
+    function initSession() {
+      const panelAuth = readCPAPanelAuth();
+      const currentSessionSecret = asString(readStorageValue(window.sessionStorage, sessionSecretStorageKey));
+      const legacySessionSecret = asString(readStorageValue(window.sessionStorage, legacySessionSecretStorageKey));
+      cleanupLegacySecret();
+      if (legacySessionSecret) {
+        try { sessionStorage.removeItem(legacySessionSecretStorageKey); } catch {}
+      }
+      session.apiBase = panelAuth?.apiBase || location.origin;
+      session.managementKey = currentSessionSecret || legacySessionSecret || panelAuth?.managementKey || "";
+    }
+    async function call(path, opts = {}) {
+      cleanupLegacySecret();
+      const headers = Object.assign({ "content-type": "application/json" }, opts.headers || {});
+      if (secret()) headers.authorization = "Bearer " + secret();
+      const res = await fetch(base() + api + path, Object.assign({}, opts, { headers }));
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); } catch { data = text; }
+      if (!res.ok) throw new Error((data && data.error) || text || res.status);
+      return data;
+    }
+    function setNotice(message) {
+      els.notice.textContent = message || "";
+      els.notice.classList.toggle("show", !!message);
+    }
+    function showToast(message) {
+      els.toast.textContent = message;
+      if (toastTimer) window.clearTimeout(toastTimer);
+      els.toast.classList.add("show");
+      toastTimer = window.setTimeout(() => {
+        els.toast.classList.remove("show");
+        toastTimer = null;
+      }, 1600);
+    }
+    function normalize(value) { return String(value ?? "").trim().toLowerCase(); }
+    function formatNumber(value) { return Number(value || 0).toLocaleString(); }
+    function formatTokens(value) {
+      const n = Number(value || 0);
+      if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(2)}B`;
+      if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
+      if (n >= 1_000) return `${(n / 1_000).toFixed(2)}K`;
+      return String(Math.round(n));
+    }
+    function formatUsd(value) {
+      const n = Number(value || 0);
+      return `$${n.toFixed(n >= 1 ? 4 : 6).replace(/0+$/, "").replace(/\.$/, "")}`;
+    }
+    function formatLatency(ms) {
+      const n = Number(ms || 0);
+      if (!n) return "--";
+      return n >= 1000 ? `${(n / 1000).toFixed(2)}s` : `${Math.round(n)}ms`;
+    }
+    function formatDate(value) {
+      if (!value) return "—";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return String(value);
+      return date.toLocaleString();
+    }
+    function dateCutoff() {
+      const now = Date.now();
+      if (els.timeRange.value === "7d") return now - 7 * 24 * 60 * 60 * 1000;
+      if (els.timeRange.value === "30d") return now - 30 * 24 * 60 * 60 * 1000;
+      return now - 24 * 60 * 60 * 1000;
+    }
+    function filteredUsage() {
+      const cutoff = dateCutoff();
+      return state.usage.filter(entry => {
+        const date = new Date(entry.created_at);
+        return !Number.isNaN(date.getTime()) && date.getTime() >= cutoff;
+      });
+    }
+    function keyName(entry) {
+      const key = state.keys.find(item => item.id === entry.key_id);
+      return key?.name || entry.key_id || "未知 API Key";
+    }
+    function resourceLabel(entry) {
+      if (entry.request_resource) return entry.request_resource;
+      const providerInstance = state.resources.find(item => normalize(item.type) === "provider_instance" && item.id === entry.provider_instance_id);
+      if (providerInstance) return providerInstance.label || providerInstance.name || providerInstance.id;
+      const auth = state.resources.find(item => normalize(item.type) === "auth_file" && (item.auth_id === entry.auth_id || item.id === entry.auth_id || item.auth_index === entry.auth_index));
+      return auth?.label || auth?.name || auth?.email || entry.auth_id || "—";
+    }
+    function detail(entry) { return entry.detail || {}; }
+    function entryInput(entry) { return Number(detail(entry).input_tokens || 0); }
+    function entryCacheRead(entry) { return Number(detail(entry).cache_read_tokens || detail(entry).cached_tokens || 0); }
+    function entryOutput(entry) { return Number(detail(entry).output_tokens || 0); }
+    function entryTotalTokens(entry) {
+      const total = Number(detail(entry).total_tokens || 0);
+      return total || entryInput(entry) + entryOutput(entry);
+    }
+    function averageLatency(rows, field) {
+      const values = rows.map(row => Number(row[field] || 0)).filter(Boolean);
+      if (!values.length) return 0;
+      return values.reduce((sum, value) => sum + value, 0) / values.length;
+    }
+    function render() {
+      const rows = filteredUsage();
+      const input = rows.reduce((sum, row) => sum + entryInput(row), 0);
+      const cacheRead = rows.reduce((sum, row) => sum + entryCacheRead(row), 0);
+      const output = rows.reduce((sum, row) => sum + entryOutput(row), 0);
+      const total = rows.reduce((sum, row) => sum + entryTotalTokens(row), 0);
+      const cost = rows.reduce((sum, row) => sum + Number(row.usd || 0), 0);
+      els.requests.textContent = formatNumber(rows.length);
+      if (els.requestsSub) els.requestsSub.textContent = "所选范围内";
+      els.tokens.textContent = formatTokens(total);
+      els.tokensSub.textContent = `输入: ${formatTokens(input)} / 读取缓存: ${formatTokens(cacheRead)} / 输出: ${formatTokens(output)}`;
+      els.cost.textContent = formatUsd(cost);
+      if (els.costSub) els.costSub.innerHTML = `<strong>成本 ${formatUsd(cost)}</strong> · 标准 ${formatUsd(cost)}`;
+      els.firstLatency.textContent = formatLatency(averageLatency(rows, "first_token_latency_ms"));
+      els.latency.textContent = formatLatency(averageLatency(rows, "total_latency_ms"));
+      if (els.rangeSummary) els.rangeSummary.textContent = `${els.timeRange.options[els.timeRange.selectedIndex].textContent} · ${rows.length} 条请求`;
+      els.detailSummary.textContent = `${rows.length} 条请求 · 按时间倒序`;
+      els.rows.innerHTML = rows.length ? rows.map((entry, index) => {
+        const requestID = entry.request_id || `req_${entry.id || index + 1}`;
+        const status = entry.failed ? "失败" : "成功";
+        return `
+          <tr data-od-id="usage-row-${index + 1}">
+            <td class="status-text">${esc(formatDate(entry.created_at))}</td>
+            <td class="name-cell"><strong>${esc(requestID)}</strong><span>${esc(keyName(entry))}</span></td>
+            <td class="provider-cell"><strong>${esc(entry.provider || "—")}</strong><span>${esc(entry.model || entry.alias || "—")}</span></td>
+            <td class="status-text">${esc(resourceLabel(entry))}</td>
+            <td class="num">${esc(formatNumber(entryInput(entry)))}</td>
+            <td class="num">${esc(formatNumber(entryCacheRead(entry)))}</td>
+            <td class="num">${esc(formatNumber(entryOutput(entry)))}</td>
+            <td class="num">${esc(formatUsd(entry.usd))}</td>
+            <td class="num">${esc(formatLatency(entry.first_token_latency_ms))}</td>
+            <td class="num">${esc(formatLatency(entry.total_latency_ms))}</td>
+            <td class="${entry.failed ? "status-failed" : "status-success"}">${status}</td>
+          </tr>
+        `;
+      }).join("") : `<tr><td colspan="11" style="padding:28px;text-align:center;color:var(--muted)">所选范围内暂无请求日志。</td></tr>`;
+    }
+    async function load({ silent = false } = {}) {
+      if (!secret()) {
+        setNotice("没有找到可复用的 CPA 管理登录。请从 CPA 管理后台的插件页面打开。");
+        return;
+      }
+      setNotice("");
+      const [keys, resources, usage] = await Promise.all([
+        call("/keys"),
+        call("/inventory"),
+        call("/usage?limit=500")
+      ]);
+      state.keys = Array.isArray(keys) ? keys : [];
+      state.resources = Array.isArray(resources) ? resources : [];
+      state.usage = Array.isArray(usage) ? usage : [];
+      render();
+      if (!silent) showToast("使用统计已刷新");
+    }
+    function closeAutoRefreshMenu() {
+      els.autoRefreshMenu.hidden = true;
+      els.autoRefreshToggle.setAttribute("aria-expanded", "false");
+    }
+    function updateAutoRefreshOptions() {
+      els.autoRefreshOptions.forEach(option => {
+        const active = Number(option.dataset.interval) === autoRefreshInterval;
+        option.classList.toggle("active", active);
+        option.setAttribute("aria-checked", active ? "true" : "false");
+      });
+    }
+    function clearAutoRefreshTimer() {
+      if (!autoRefreshTimer) return;
+      window.clearInterval(autoRefreshTimer);
+      autoRefreshTimer = null;
+    }
+    function renderAutoRefreshCountdown() {
+      if (!autoRefreshInterval) {
+        els.refreshCountdown.hidden = true;
+        els.refreshCountdown.classList.remove("busy");
+        els.refreshCountdown.textContent = "";
+        return;
+      }
+      els.refreshCountdown.hidden = false;
+      els.refreshCountdown.classList.remove("busy");
+      els.refreshCountdown.textContent = `${autoRefreshRemaining}s`;
+    }
+    function startAutoRefreshCountdown() {
+      clearAutoRefreshTimer();
+      if (!autoRefreshInterval) {
+        renderAutoRefreshCountdown();
+        return;
+      }
+      autoRefreshRemaining = autoRefreshInterval;
+      renderAutoRefreshCountdown();
+      autoRefreshTimer = window.setInterval(() => {
+        autoRefreshRemaining -= 1;
+        if (autoRefreshRemaining <= 0) {
+          clearAutoRefreshTimer();
+          els.refreshCountdown.hidden = false;
+          els.refreshCountdown.classList.add("busy");
+          els.refreshCountdown.textContent = "正在刷新";
+          window.setTimeout(async () => {
+            await load({ silent: true });
+            startAutoRefreshCountdown();
+          }, 520);
+          return;
+        }
+        renderAutoRefreshCountdown();
+      }, 1000);
+    }
+    function setAutoRefreshInterval(seconds) {
+      autoRefreshInterval = seconds;
+      updateAutoRefreshOptions();
+      closeAutoRefreshMenu();
+      startAutoRefreshCountdown();
+    }
+
+    els.timeRange.addEventListener("change", render);
+    if (els.granularity) els.granularity.addEventListener("change", render);
+    els.refresh.addEventListener("click", async () => {
+      await load();
+      if (autoRefreshInterval) startAutoRefreshCountdown();
+    });
+    els.autoRefreshToggle.addEventListener("click", event => {
+      event.stopPropagation();
+      const shouldOpen = els.autoRefreshMenu.hidden;
+      els.autoRefreshMenu.hidden = !shouldOpen;
+      els.autoRefreshToggle.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+    });
+    els.autoRefreshMenu.addEventListener("click", event => {
+      const option = event.target.closest(".auto-refresh-option");
+      if (!option) return;
+      setAutoRefreshInterval(Number(option.dataset.interval));
+    });
+    document.addEventListener("click", event => {
+      if (!event.target.closest(".styled-select")) closeStyledSelects();
+      if (els.autoRefreshMenu.hidden) return;
+      if (event.target.closest(".auto-refresh-wrap")) return;
+      closeAutoRefreshMenu();
+    });
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape") closeAutoRefreshMenu();
+      if (event.key === "Escape") closeStyledSelects();
+    });
+
+    initSession();
+    initStyledSelects();
+    load({ silent: true }).catch(error => setNotice(error.message || "加载失败"));
+  </script>
+</body>
+</html>
