@@ -150,15 +150,23 @@ func (a *App) managementRegistration() ManagementRegistrationResponse {
 		{Method: http.MethodPost, Path: routeInventory, Description: "Refresh or upsert inventory."},
 		{Method: http.MethodGet, Path: routePrices, Description: "List price rules."},
 		{Method: http.MethodPut, Path: routePrices, Description: "Upsert price rules."},
+		{Method: http.MethodPost, Path: routePricesSync, Description: "Sync model price rules from public sources."},
 		{Method: http.MethodGet, Path: routeUsage, Description: "List usage ledger."},
 	}
 	return ManagementRegistrationResponse{
 		Routes: routes,
-		Resources: []ResourceRoute{{
-			Path:        resourceIndex,
-			Menu:        "API Key管理",
-			Description: "管理下游 API Key、关联资源和额度。",
-		}},
+		Resources: []ResourceRoute{
+			{
+				Path:        resourceAPIKeys,
+				Menu:        "API Key管理",
+				Description: "管理下游 API Key、关联资源和额度。",
+			},
+			{
+				Path:        resourceSettings,
+				Menu:        "设置",
+				Description: "配置管理密钥和模型计费规则。",
+			},
+		},
 	}
 }
 

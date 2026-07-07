@@ -100,6 +100,7 @@
       border: 1px solid var(--border-strong);
       background: #ebe8e2;
       color: var(--fg);
+      text-decoration: none;
       font-weight: 700;
       white-space: nowrap;
       transition:
@@ -135,15 +136,13 @@
     }
 
     .btn.primary[data-od-id="create-api-key-button"],
-    .btn.primary[data-od-id="save-api-key-button"],
-    .btn.primary[data-od-id="save-settings-button"] {
+    .btn.primary[data-od-id="save-api-key-button"] {
       border-color: #c96442;
       background: #c96442;
     }
 
     .btn.primary[data-od-id="create-api-key-button"]:hover,
-    .btn.primary[data-od-id="save-api-key-button"]:hover,
-    .btn.primary[data-od-id="save-settings-button"]:hover {
+    .btn.primary[data-od-id="save-api-key-button"]:hover {
       border-color: #b35739;
       background: #b35739;
     }
@@ -153,6 +152,109 @@
       width: 16px;
       height: 16px;
       stroke-width: 2;
+    }
+
+    .refresh-group {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .refresh-countdown {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .refresh-countdown[hidden] {
+      display: none;
+    }
+
+    .refresh-countdown.busy {
+      color: #087452;
+      font-family: var(--font);
+    }
+
+    .refresh-action {
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .refresh-action #refreshBtn {
+      border-top-right-radius: 0;
+      border-bottom-right-radius: 0;
+    }
+
+    .refresh-action .auto-refresh-wrap {
+      margin-left: -1px;
+    }
+
+    .refresh-action .auto-refresh-toggle {
+      border-top-left-radius: 0;
+      border-bottom-left-radius: 0;
+    }
+
+    .refresh-action #refreshBtn:hover,
+    .refresh-action .auto-refresh-toggle:hover {
+      position: relative;
+      z-index: 1;
+    }
+
+    .auto-refresh-wrap {
+      position: relative;
+      display: inline-flex;
+    }
+
+    .auto-refresh-toggle {
+      width: 34px;
+      padding: 0;
+    }
+
+    .auto-refresh-toggle svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .auto-refresh-menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      z-index: 30;
+      display: grid;
+      gap: 2px;
+      min-width: 132px;
+      padding: 6px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .auto-refresh-menu[hidden] {
+      display: none;
+    }
+
+    .auto-refresh-option {
+      height: 30px;
+      padding: 0 9px;
+      border-radius: 6px;
+      color: var(--fg);
+      background: transparent;
+      text-align: left;
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    .auto-refresh-option:hover,
+    .auto-refresh-option.active {
+      background: #eee9e1;
     }
 
     .card {
@@ -306,8 +408,8 @@
 
     input:focus,
     select:focus {
-      border-color: var(--primary);
-      box-shadow: 0 0 0 4px rgba(18, 185, 129, 0.13);
+      border-color: #c96442;
+      box-shadow: 0 0 0 4px rgba(201, 100, 66, 0.16);
     }
 
     .table-wrap {
@@ -749,62 +851,6 @@
       background: var(--surface);
     }
 
-    .settings-backdrop {
-      position: fixed;
-      inset: 0;
-      z-index: 60;
-      display: grid;
-      place-items: center;
-      padding: 20px;
-      opacity: 0;
-      visibility: hidden;
-      pointer-events: none;
-      background: rgba(42, 37, 30, 0.24);
-      transition:
-        opacity var(--motion-base) var(--ease-out),
-        visibility 0s linear var(--motion-base);
-    }
-
-    .settings-backdrop.open {
-      opacity: 1;
-      visibility: visible;
-      pointer-events: auto;
-      transition-delay: 0s;
-    }
-
-    .settings-modal {
-      width: min(420px, 100%);
-      overflow: hidden;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      background: var(--surface);
-      box-shadow: var(--shadow);
-      opacity: 0.98;
-      transform: translate3d(0, 10px, 0);
-      transition:
-        transform 240ms var(--ease-emphasized),
-        opacity var(--motion-base) var(--ease-out);
-    }
-
-    .settings-backdrop.open .settings-modal {
-      opacity: 1;
-      transform: translate3d(0, 0, 0);
-    }
-
-    .settings-body {
-      display: grid;
-      gap: 14px;
-      padding: 18px 20px 20px;
-      background: var(--bg);
-    }
-
-    .settings-helper {
-      margin: -4px 0 0;
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.5;
-    }
-
     .form-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -948,8 +994,6 @@
       .bar span,
       .drawer-backdrop,
       .drawer,
-      .settings-backdrop,
-      .settings-modal,
       .resource-option,
       .error,
       .toast {
@@ -960,8 +1004,6 @@
       .icon-btn:hover,
       .drawer,
       .drawer-backdrop.open .drawer,
-      .settings-modal,
-      .settings-backdrop.open .settings-modal,
       .error,
       .error.show {
         transform: none !important;
@@ -1104,14 +1146,27 @@
             <option value="all">全部关联资源</option>
           </select>
           <div class="top-actions" data-od-id="top-actions">
-            <button class="btn" id="openSettings" data-od-id="settings-button">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"></path><path d="M19.4 15a1.8 1.8 0 0 0 .36 1.98l.05.05a2.18 2.18 0 0 1-3.08 3.08l-.05-.05a1.8 1.8 0 0 0-1.98-.36 1.8 1.8 0 0 0-1.1 1.65V21.5a2.2 2.2 0 0 1-4.4 0v-.08A1.8 1.8 0 0 0 8.1 19.77a1.8 1.8 0 0 0-1.98.36l-.05.05a2.18 2.18 0 0 1-3.08-3.08l.05-.05A1.8 1.8 0 0 0 3.4 15a1.8 1.8 0 0 0-1.65-1.1H1.7a2.2 2.2 0 0 1 0-4.4h.08A1.8 1.8 0 0 0 3.43 8.4a1.8 1.8 0 0 0-.36-1.98l-.05-.05A2.18 2.18 0 0 1 6.1 3.29l.05.05a1.8 1.8 0 0 0 1.98.36h.02A1.8 1.8 0 0 0 9.25 2.05V2a2.2 2.2 0 0 1 4.4 0v.08a1.8 1.8 0 0 0 1.1 1.65 1.8 1.8 0 0 0 1.98-.36l.05-.05a2.18 2.18 0 0 1 3.08 3.08l-.05.05a1.8 1.8 0 0 0-.36 1.98v.02a1.8 1.8 0 0 0 1.65 1.1h.08a2.2 2.2 0 0 1 0 4.4h-.08A1.8 1.8 0 0 0 19.4 15Z"></path></svg>
-              设置
-            </button>
-            <button class="btn" id="refreshBtn" data-od-id="refresh-button">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path><path d="M3 21v-5h5"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M21 3v5h-5"></path></svg>
-              刷新
-            </button>
+            <div class="refresh-group" data-od-id="refresh-control-group">
+              <span class="refresh-countdown" id="refreshCountdown" data-od-id="refresh-countdown" hidden></span>
+              <div class="refresh-action" data-od-id="refresh-split-button">
+                <button class="btn" id="refreshBtn" data-od-id="refresh-button">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path><path d="M3 21v-5h5"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M21 3v5h-5"></path></svg>
+                  刷新
+                </button>
+                <div class="auto-refresh-wrap">
+                  <button class="btn auto-refresh-toggle" id="autoRefreshToggle" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="自动刷新间隔" data-od-id="auto-refresh-toggle">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 9 6 6 6-6"></path></svg>
+                  </button>
+                  <div class="auto-refresh-menu" id="autoRefreshMenu" role="menu" aria-label="自动刷新间隔" hidden data-od-id="auto-refresh-menu">
+                    <button class="auto-refresh-option active" type="button" role="menuitemradio" aria-checked="true" data-interval="0" data-od-id="auto-refresh-none">不自动刷新</button>
+                    <button class="auto-refresh-option" type="button" role="menuitemradio" aria-checked="false" data-interval="5" data-od-id="auto-refresh-5s">5秒</button>
+                    <button class="auto-refresh-option" type="button" role="menuitemradio" aria-checked="false" data-interval="10" data-od-id="auto-refresh-10s">10秒</button>
+                    <button class="auto-refresh-option" type="button" role="menuitemradio" aria-checked="false" data-interval="15" data-od-id="auto-refresh-15s">15秒</button>
+                    <button class="auto-refresh-option" type="button" role="menuitemradio" aria-checked="false" data-interval="30" data-od-id="auto-refresh-30s">30秒</button>
+                  </div>
+                </div>
+              </div>
+            </div>
             <button class="btn primary" id="openCreate" data-od-id="create-api-key-button">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
               新建 API Key
@@ -1208,32 +1263,6 @@
     </section>
   </div>
 
-  <div class="settings-backdrop" id="settingsBackdrop" data-od-id="management-key-dialog-backdrop" aria-hidden="true">
-    <section class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" data-od-id="management-key-dialog">
-      <div class="drawer-head">
-        <div>
-          <h3 id="settingsTitle">管理设置</h3>
-          <p>输入管理密钥后，可用于后续管理操作校验。</p>
-        </div>
-        <button class="icon-btn" id="closeSettings" aria-label="关闭设置" data-od-id="close-settings-button">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
-        </button>
-      </div>
-      <div class="settings-body">
-        <div class="field">
-          <label for="managementKeyInput">管理密钥</label>
-          <input id="managementKeyInput" type="text" autocomplete="off" spellcheck="false" placeholder="输入管理密钥" data-od-id="management-key-input">
-          <p class="settings-helper">当前输入框会显示本页正在使用的管理密钥；保存后只写入当前页面会话。</p>
-          <div id="managementKeyError" class="error" role="alert" aria-hidden="true">请输入管理密钥。</div>
-        </div>
-      </div>
-      <div class="drawer-foot">
-        <button class="btn" id="cancelSettings" data-od-id="cancel-settings-button">取消</button>
-        <button class="btn primary" id="saveSettings" data-od-id="save-settings-button">保存</button>
-      </div>
-    </section>
-  </div>
-
   <div class="toast" id="toast" data-od-id="feedback-toast" role="status" aria-live="polite" aria-atomic="true">已复制</div>
 
   <script>
@@ -1256,6 +1285,9 @@
     const session = { apiBase: "", managementKey: "" };
     let toastTimer = null;
     let lastFocusedElement = null;
+    let autoRefreshInterval = 0;
+    let autoRefreshRemaining = 0;
+    let autoRefreshTimer = null;
     const reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     const els = {
@@ -1277,9 +1309,10 @@
       quotaTotal: $("quotaTotalInput"),
       quotaError: $("quotaError"),
       resourceError: $("resourceError"),
-      settings: $("settingsBackdrop"),
-      managementKey: $("managementKeyInput"),
-      managementKeyError: $("managementKeyError")
+      refreshCountdown: $("refreshCountdown"),
+      autoRefreshToggle: $("autoRefreshToggle"),
+      autoRefreshMenu: $("autoRefreshMenu"),
+      autoRefreshOptions: Array.from(document.querySelectorAll(".auto-refresh-option"))
     };
 
     function base() { return session.apiBase || location.origin; }
@@ -1787,38 +1820,6 @@
         window.setTimeout(() => focusTarget.focus({ preventScroll: true }), reducedMotion ? 0 : 160);
       }
     }
-    function openSettings() {
-      lastFocusedElement = document.activeElement;
-      els.managementKey.value = secret();
-      setError(els.managementKeyError, false);
-      els.settings.classList.add("open");
-      els.settings.setAttribute("aria-hidden", "false");
-      document.body.classList.add("settings-active");
-      window.setTimeout(() => els.managementKey.focus({ preventScroll: true }), reducedMotion ? 0 : 160);
-    }
-    function closeSettings() {
-      if (!els.settings.classList.contains("open")) return;
-      els.settings.classList.remove("open");
-      els.settings.setAttribute("aria-hidden", "true");
-      document.body.classList.remove("settings-active");
-      const focusTarget = lastFocusedElement;
-      if (focusTarget && focusTarget.isConnected && typeof focusTarget.focus === "function") {
-        window.setTimeout(() => focusTarget.focus({ preventScroll: true }), reducedMotion ? 0 : 140);
-      }
-    }
-    async function saveSettings() {
-      const value = els.managementKey.value.trim();
-      if (!value) {
-        setError(els.managementKeyError, true);
-        return;
-      }
-      setError(els.managementKeyError, false);
-      session.managementKey = value;
-      saveSessionSecret(value);
-      closeSettings();
-      showToast("管理密钥已保存");
-      await load(false);
-    }
     async function saveKey() {
       const name = els.keyName.value.trim();
       const five = parseOptionalQuota(els.quotaFiveHour);
@@ -1882,36 +1883,110 @@
         setNotice(e.message, true);
       }
     }
-
-    els.search.addEventListener("input", () => { state.pendingDeleteID = ""; renderRows(); });
-    els.statusFilter.addEventListener("change", () => {
-      state.activeStatus = els.statusFilter.value;
+    function clearPendingDelete() {
+      if (!state.pendingDeleteID) return false;
       state.pendingDeleteID = "";
       renderRows();
+      return true;
+    }
+    function closeAutoRefreshMenu() {
+      els.autoRefreshMenu.hidden = true;
+      els.autoRefreshToggle.setAttribute("aria-expanded", "false");
+    }
+    function updateAutoRefreshOptions() {
+      els.autoRefreshOptions.forEach(option => {
+        const active = Number(option.dataset.interval) === autoRefreshInterval;
+        option.classList.toggle("active", active);
+        option.setAttribute("aria-checked", active ? "true" : "false");
+      });
+    }
+    function clearAutoRefreshTimer() {
+      if (!autoRefreshTimer) return;
+      window.clearInterval(autoRefreshTimer);
+      autoRefreshTimer = null;
+    }
+    function renderAutoRefreshCountdown() {
+      if (!autoRefreshInterval) {
+        els.refreshCountdown.hidden = true;
+        els.refreshCountdown.classList.remove("busy");
+        els.refreshCountdown.textContent = "";
+        return;
+      }
+      els.refreshCountdown.hidden = false;
+      els.refreshCountdown.classList.remove("busy");
+      els.refreshCountdown.textContent = `${autoRefreshRemaining}s`;
+    }
+    function startAutoRefreshCountdown() {
+      clearAutoRefreshTimer();
+      if (!autoRefreshInterval) {
+        renderAutoRefreshCountdown();
+        return;
+      }
+      autoRefreshRemaining = autoRefreshInterval;
+      renderAutoRefreshCountdown();
+      autoRefreshTimer = window.setInterval(() => {
+        autoRefreshRemaining -= 1;
+        if (autoRefreshRemaining <= 0) {
+          clearAutoRefreshTimer();
+          els.refreshCountdown.hidden = false;
+          els.refreshCountdown.classList.add("busy");
+          els.refreshCountdown.textContent = "正在刷新";
+          window.setTimeout(async () => {
+            await load(false);
+            startAutoRefreshCountdown();
+          }, 520);
+          return;
+        }
+        renderAutoRefreshCountdown();
+      }, 1000);
+    }
+    function setAutoRefreshInterval(seconds) {
+      autoRefreshInterval = seconds;
+      updateAutoRefreshOptions();
+      closeAutoRefreshMenu();
+      startAutoRefreshCountdown();
+    }
+
+    els.search.addEventListener("input", () => { if (!clearPendingDelete()) renderRows(); });
+    els.statusFilter.addEventListener("change", () => {
+      state.activeStatus = els.statusFilter.value;
+      if (!clearPendingDelete()) renderRows();
     });
-    els.typeFilter.addEventListener("change", () => { state.pendingDeleteID = ""; renderRows(); });
-    els.resourceFilter.addEventListener("change", () => { state.pendingDeleteID = ""; renderRows(); });
+    els.typeFilter.addEventListener("change", () => { if (!clearPendingDelete()) renderRows(); });
+    els.resourceFilter.addEventListener("change", () => { if (!clearPendingDelete()) renderRows(); });
     els.aiType.addEventListener("change", () => {
       renderPicker([]);
       setError(els.resourceError, false);
     });
     $("openCreate").addEventListener("click", () => openDrawer());
-    $("openSettings").addEventListener("click", openSettings);
     $("closeDrawer").addEventListener("click", closeDrawer);
     $("cancelDrawer").addEventListener("click", closeDrawer);
-    $("closeSettings").addEventListener("click", closeSettings);
-    $("cancelSettings").addEventListener("click", closeSettings);
-    $("saveSettings").addEventListener("click", saveSettings);
     $("saveKey").addEventListener("click", saveKey);
     els.drawer.addEventListener("click", event => {
       if (event.target === els.drawer) closeDrawer();
     });
-    els.settings.addEventListener("click", event => {
-      if (event.target === els.settings) closeSettings();
-    });
     document.addEventListener("keydown", event => {
-      if (event.key === "Escape" && els.settings.classList.contains("open")) closeSettings();
       if (event.key === "Escape" && els.drawer.classList.contains("open")) closeDrawer();
+      if (event.key === "Escape" && !els.autoRefreshMenu.hidden) closeAutoRefreshMenu();
+    });
+    document.addEventListener("click", event => {
+      if (event.target.closest(".row-actions")) return;
+      clearPendingDelete();
+    });
+    els.autoRefreshToggle.addEventListener("click", () => {
+      const shouldOpen = els.autoRefreshMenu.hidden;
+      els.autoRefreshMenu.hidden = !shouldOpen;
+      els.autoRefreshToggle.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+    });
+    els.autoRefreshMenu.addEventListener("click", event => {
+      const option = event.target.closest(".auto-refresh-option");
+      if (!option) return;
+      setAutoRefreshInterval(Number(option.dataset.interval));
+    });
+    document.addEventListener("click", event => {
+      if (els.autoRefreshMenu.hidden) return;
+      if (event.target.closest(".auto-refresh-wrap")) return;
+      closeAutoRefreshMenu();
     });
     els.rows.addEventListener("click", event => {
       const button = event.target.closest("button");
@@ -1920,22 +1995,21 @@
       const key = state.keys.find(item => item.id === id);
       if (button.dataset.action === "copy") {
         copyText(maskKeyText(key?.key_prefix || id), "已复制脱敏文本");
-        state.pendingDeleteID = "";
-        renderRows();
+        clearPendingDelete();
       }
       if (button.dataset.action === "edit") {
-        state.pendingDeleteID = "";
-        renderRows();
+        clearPendingDelete();
         openDrawer(key);
       }
       if (button.dataset.action === "toggle") {
-        state.pendingDeleteID = "";
+        clearPendingDelete();
         toggleKey(id);
       }
       if (button.dataset.action === "delete") deleteKey(id);
     });
     $("refreshBtn").addEventListener("click", async () => {
       await load(true);
+      if (autoRefreshInterval) startAutoRefreshCountdown();
       showToast("列表已刷新");
     });
 

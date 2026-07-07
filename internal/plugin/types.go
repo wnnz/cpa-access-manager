@@ -29,15 +29,18 @@ const (
 )
 
 const (
-	routeKeys      = "/plugins/" + PluginID + "/keys"
-	routeRotateKey = "/plugins/" + PluginID + "/keys/rotate"
-	routeGroups    = "/plugins/" + PluginID + "/groups"
-	routeInventory = "/plugins/" + PluginID + "/inventory"
-	routePrices    = "/plugins/" + PluginID + "/prices"
-	routeUsage     = "/plugins/" + PluginID + "/usage"
-	routeStatus    = "/plugins/" + PluginID + "/status"
+	routeKeys       = "/plugins/" + PluginID + "/keys"
+	routeRotateKey  = "/plugins/" + PluginID + "/keys/rotate"
+	routeGroups     = "/plugins/" + PluginID + "/groups"
+	routeInventory  = "/plugins/" + PluginID + "/inventory"
+	routePrices     = "/plugins/" + PluginID + "/prices"
+	routePricesSync = "/plugins/" + PluginID + "/prices/sync"
+	routeUsage      = "/plugins/" + PluginID + "/usage"
+	routeStatus     = "/plugins/" + PluginID + "/status"
 
-	resourceIndex = "/index.html"
+	resourceAPIKeys  = "/apikey.html"
+	resourceIndex    = "/index.html"
+	resourceSettings = "/settings.html"
 )
 
 type Envelope struct {

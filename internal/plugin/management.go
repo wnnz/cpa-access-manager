@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/wnnz/cpa-toolkit/internal/access"
 	"github.com/wnnz/cpa-toolkit/internal/web"
@@ -57,14 +58,24 @@ func (a *App) handleManagement(raw []byte) ([]byte, error) {
 	if err := json.Unmarshal(raw, &req); err != nil {
 		return nil, err
 	}
-	if isIndexResource(req.Path) {
+	if isAPIKeyResource(req.Path) {
 		return OKEnvelope(ManagementResponse{
 			StatusCode: http.StatusOK,
 			Headers: http.Header{
 				"content-type":  []string{"text/html; charset=utf-8"},
 				"cache-control": []string{"no-store"},
 			},
-			Body: []byte(web.IndexHTML),
+			Body: []byte(web.APIKeyHTML),
+		})
+	}
+	if isSettingsResource(req.Path) {
+		return OKEnvelope(ManagementResponse{
+			StatusCode: http.StatusOK,
+			Headers: http.Header{
+				"content-type":  []string{"text/html; charset=utf-8"},
+				"cache-control": []string{"no-store"},
+			},
+			Body: []byte(web.SettingsHTML),
 		})
 	}
 	cfg, store := a.loaded()
@@ -85,6 +96,8 @@ func (a *App) handleManagement(raw []byte) ([]byte, error) {
 		return OKEnvelope(a.handleInventory(store, req))
 	case routePrices:
 		return OKEnvelope(a.handlePrices(store, req))
+	case routePricesSync:
+		return OKEnvelope(a.handlePriceSync(store, req))
 	case routeUsage:
 		return OKEnvelope(a.handleUsageAPI(store, req))
 	default:
@@ -291,6 +304,28 @@ func (a *App) handlePrices(store *access.Store, req ManagementRequest) Managemen
 	}
 }
 
+func (a *App) handlePriceSync(store *access.Store, req ManagementRequest) ManagementResponse {
+	if strings.ToUpper(req.Method) != http.MethodPost {
+		return errorJSON(http.StatusMethodNotAllowed, errors.New("method not allowed"))
+	}
+	var body priceSyncRequest
+	if len(strings.TrimSpace(string(req.Body))) > 0 {
+		if err := json.Unmarshal(req.Body, &body); err != nil {
+			return errorJSON(http.StatusBadRequest, err)
+		}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
+	defer cancel()
+	rules, sourceURL, err := syncPriceRules(ctx, body.SourceURL)
+	if err != nil {
+		return errorJSON(http.StatusBadRequest, err)
+	}
+	if err := store.UpsertPriceRules(context.Background(), rules); err != nil {
+		return errorJSON(http.StatusBadRequest, err)
+	}
+	return jsonManagement(http.StatusOK, priceSyncResponse{SourceURL: sourceURL, Synced: len(rules)})
+}
+
 func (a *App) handleUsageAPI(store *access.Store, req ManagementRequest) ManagementResponse {
 	if strings.ToUpper(req.Method) != http.MethodGet {
 		return errorJSON(http.StatusMethodNotAllowed, errors.New("method not allowed"))
@@ -431,7 +466,7 @@ func statusFromError(err error) int {
 
 func normalizedPluginPath(path string) string {
 	path = strings.TrimSpace(path)
-	routes := []string{routeRotateKey, routeKeys, routeGroups, routeInventory, routePrices, routeUsage, routeStatus}
+	routes := []string{routeRotateKey, routeKeys, routeGroups, routeInventory, routePricesSync, routePrices, routeUsage, routeStatus}
 	for _, route := range routes {
 		if strings.HasSuffix(path, route) || strings.Contains(path, route) {
 			return route
@@ -443,9 +478,19 @@ func normalizedPluginPath(path string) string {
 	return path
 }
 
-func isIndexResource(path string) bool {
+func isAPIKeyResource(path string) bool {
 	path = strings.TrimSpace(path)
-	return strings.HasSuffix(path, "/v0/resource/plugins/"+PluginID+resourceIndex) ||
+	return strings.HasSuffix(path, "/v0/resource/plugins/"+PluginID+resourceAPIKeys) ||
+		strings.HasSuffix(path, "/resource/plugins/"+PluginID+resourceAPIKeys) ||
+		strings.HasSuffix(path, resourceAPIKeys) ||
+		strings.HasSuffix(path, "/v0/resource/plugins/"+PluginID+resourceIndex) ||
 		strings.HasSuffix(path, "/resource/plugins/"+PluginID+resourceIndex) ||
 		strings.HasSuffix(path, resourceIndex)
+}
+
+func isSettingsResource(path string) bool {
+	path = strings.TrimSpace(path)
+	return strings.HasSuffix(path, "/v0/resource/plugins/"+PluginID+resourceSettings) ||
+		strings.HasSuffix(path, "/resource/plugins/"+PluginID+resourceSettings) ||
+		strings.HasSuffix(path, resourceSettings)
 }

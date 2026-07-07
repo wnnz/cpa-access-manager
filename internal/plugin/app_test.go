@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"math"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/wnnz/cpa-toolkit/internal/access"
@@ -311,4 +313,114 @@ func TestAppManagementRotateRouteUsesExactNormalizedPath(t *testing.T) {
 	if plain, _ := body["plain_key"].(string); plain == "" {
 		t.Fatalf("plain_key missing in body %s", string(resp.Body))
 	}
+}
+
+func TestAppManagementRegistersMultipleResourceMenus(t *testing.T) {
+	app, _ := newTestApp(t)
+
+	rawResp, err := app.HandleMethod(MethodManagementRegister, nil)
+	if err != nil {
+		t.Fatalf("HandleMethod(management.register) error = %v", err)
+	}
+	env, resp := decodeEnvelopeResult[ManagementRegistrationResponse](t, rawResp)
+	if !env.OK {
+		t.Fatalf("management register envelope = %#v, want ok", env)
+	}
+	got := map[string]string{}
+	for _, resource := range resp.Resources {
+		got[resource.Path] = resource.Menu
+	}
+	if got[resourceAPIKeys] != "API Key管理" {
+		t.Fatalf("API key resource menu = %q, want API Key管理", got[resourceAPIKeys])
+	}
+	if got[resourceSettings] != "设置" {
+		t.Fatalf("settings resource menu = %q, want 设置", got[resourceSettings])
+	}
+}
+
+func TestAppManagementResourcePages(t *testing.T) {
+	app, _ := newTestApp(t)
+	for _, tc := range []struct {
+		path string
+		want string
+	}{
+		{"/v0/resource/plugins/cpa-toolkit/apikey.html", "API Key 管理"},
+		{"/v0/resource/plugins/cpa-toolkit/settings.html", "模型计费设置"},
+		{"/v0/resource/plugins/cpa-toolkit/index.html", "API Key 管理"},
+	} {
+		req := ManagementRequest{Method: http.MethodGet, Path: tc.path}
+		rawReq, _ := json.Marshal(req)
+		rawResp, err := app.HandleMethod(MethodManagementHandle, rawReq)
+		if err != nil {
+			t.Fatalf("HandleMethod(%s) error = %v", tc.path, err)
+		}
+		env, resp := decodeEnvelopeResult[ManagementResponse](t, rawResp)
+		if !env.OK {
+			t.Fatalf("resource envelope = %#v, want ok", env)
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("resource status = %d, want 200", resp.StatusCode)
+		}
+		if !strings.Contains(string(resp.Body), tc.want) {
+			t.Fatalf("resource body for %s does not contain %q", tc.path, tc.want)
+		}
+	}
+}
+
+func TestAppManagementSyncPricesFromSource(t *testing.T) {
+	app, store := newTestApp(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("content-type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"gpt-test": {
+				"litellm_provider": "openai",
+				"input_cost_per_token": 0.000001,
+				"cache_read_input_token_cost": 0.00000025,
+				"output_cost_per_token": 0.000004
+			},
+			"anthropic/claude-test": {
+				"litellm_provider": "anthropic",
+				"input_cost_per_token": 0.000003,
+				"output_cost_per_token": 0.000015
+			}
+		}`))
+	}))
+	defer server.Close()
+
+	req := ManagementRequest{
+		Method: http.MethodPost,
+		Path:   "/v0/management/plugins/cpa-toolkit/prices/sync",
+		Body:   []byte(`{"source_url":` + strconvQuote(server.URL) + `}`),
+	}
+	rawReq, _ := json.Marshal(req)
+	rawResp, err := app.HandleMethod(MethodManagementHandle, rawReq)
+	if err != nil {
+		t.Fatalf("HandleMethod(price sync) error = %v", err)
+	}
+	env, resp := decodeEnvelopeResult[ManagementResponse](t, rawResp)
+	if !env.OK {
+		t.Fatalf("price sync envelope = %#v, want ok", env)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("price sync status = %d body=%s, want 200", resp.StatusCode, string(resp.Body))
+	}
+	codexRule, err := store.PriceRule(context.Background(), "codex", "gpt-test")
+	if err != nil {
+		t.Fatalf("codex PriceRule() error = %v", err)
+	}
+	if codexRule.InputUSDPerMillion != 1 || codexRule.CacheReadUSDPerMillion != 0.25 || codexRule.OutputUSDPerMillion != 4 {
+		t.Fatalf("codex rule = %#v, want 1/0.25/4", codexRule)
+	}
+	claudeRule, err := store.PriceRule(context.Background(), "claude", "claude-test")
+	if err != nil {
+		t.Fatalf("claude PriceRule() error = %v", err)
+	}
+	if claudeRule.InputUSDPerMillion != 3 || claudeRule.OutputUSDPerMillion != 15 {
+		t.Fatalf("claude rule = %#v, want 3/15", claudeRule)
+	}
+}
+
+func strconvQuote(value string) string {
+	raw, _ := json.Marshal(value)
+	return string(raw)
 }
