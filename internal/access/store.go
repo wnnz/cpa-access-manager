@@ -142,6 +142,7 @@ func (s *Store) init(ctx context.Context) error {
 			input_tokens INTEGER NOT NULL DEFAULT 0,
 			output_tokens INTEGER NOT NULL DEFAULT 0,
 			reasoning_tokens INTEGER NOT NULL DEFAULT 0,
+			reasoning_effort TEXT NOT NULL DEFAULT '',
 			cached_tokens INTEGER NOT NULL DEFAULT 0,
 			cache_read_tokens INTEGER NOT NULL DEFAULT 0,
 			cache_creation_tokens INTEGER NOT NULL DEFAULT 0,
@@ -181,6 +182,7 @@ func (s *Store) ensureUsageLedgerColumns(ctx context.Context) error {
 		{"request_resource", "request_resource TEXT NOT NULL DEFAULT ''"},
 		{"first_token_latency_ms", "first_token_latency_ms INTEGER NOT NULL DEFAULT 0"},
 		{"total_latency_ms", "total_latency_ms INTEGER NOT NULL DEFAULT 0"},
+		{"reasoning_effort", "reasoning_effort TEXT NOT NULL DEFAULT ''"},
 	}
 	for _, addition := range additions {
 		if columns[addition.name] {
@@ -811,6 +813,7 @@ func (s *Store) RecordUsage(ctx context.Context, entry UsageEntry) (UsageEntry, 
 	if entry.ProviderInstanceID == "" && entry.Provider != "" && entry.AuthID != "" {
 		entry.ProviderInstanceID = ProviderInstanceID(entry.Provider, entry.AuthID, entry.AuthIndex, "")
 	}
+	entry.Detail.CacheReadTokens = normalizedCacheReadTokens(entry.Detail)
 	rule, err := s.PriceRule(ctx, entry.Provider, entry.Model)
 	if err != nil {
 		if !errors.Is(err, ErrMissingPriceRule) {
@@ -819,9 +822,9 @@ func (s *Store) RecordUsage(ctx context.Context, entry UsageEntry) (UsageEntry, 
 	} else {
 		entry.USD = CalculateUSD(rule, entry.Detail)
 	}
-	res, err := s.db.ExecContext(ctx, `INSERT INTO usage_ledger(key_id, request_id, request_resource, auth_id, auth_index, provider, provider_instance_id, model, alias, input_tokens, output_tokens, reasoning_tokens, cached_tokens, cache_read_tokens, cache_creation_tokens, total_tokens, first_token_latency_ms, total_latency_ms, usd, failed, created_at)
-		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		entry.KeyID, strings.TrimSpace(entry.RequestID), strings.TrimSpace(entry.RequestResource), entry.AuthID, entry.AuthIndex, entry.Provider, entry.ProviderInstanceID, entry.Model, entry.Alias, entry.Detail.InputTokens, entry.Detail.OutputTokens, entry.Detail.ReasoningTokens, entry.Detail.CachedTokens, entry.Detail.CacheReadTokens, entry.Detail.CacheCreationTokens, entry.Detail.TotalTokens, entry.FirstTokenLatencyMS, entry.TotalLatencyMS, entry.USD, boolInt(entry.Failed), formatTime(entry.CreatedAt))
+	res, err := s.db.ExecContext(ctx, `INSERT INTO usage_ledger(key_id, request_id, request_resource, auth_id, auth_index, provider, provider_instance_id, model, alias, input_tokens, output_tokens, reasoning_tokens, reasoning_effort, cached_tokens, cache_read_tokens, cache_creation_tokens, total_tokens, first_token_latency_ms, total_latency_ms, usd, failed, created_at)
+		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		entry.KeyID, strings.TrimSpace(entry.RequestID), strings.TrimSpace(entry.RequestResource), entry.AuthID, entry.AuthIndex, entry.Provider, entry.ProviderInstanceID, entry.Model, entry.Alias, entry.Detail.InputTokens, entry.Detail.OutputTokens, entry.Detail.ReasoningTokens, normalizeReasoningEffort(entry.Detail.ReasoningEffort), entry.Detail.CachedTokens, entry.Detail.CacheReadTokens, entry.Detail.CacheCreationTokens, entry.Detail.TotalTokens, entry.FirstTokenLatencyMS, entry.TotalLatencyMS, entry.USD, boolInt(entry.Failed), formatTime(entry.CreatedAt))
 	if err != nil {
 		return UsageEntry{}, err
 	}
@@ -834,7 +837,7 @@ func (s *Store) ListUsage(ctx context.Context, keyID string, limit int) ([]Usage
 		limit = 100
 	}
 	args := []any{}
-	query := `SELECT id, key_id, request_id, request_resource, auth_id, auth_index, provider, provider_instance_id, model, alias, input_tokens, output_tokens, reasoning_tokens, cached_tokens, cache_read_tokens, cache_creation_tokens, total_tokens, first_token_latency_ms, total_latency_ms, usd, failed, created_at FROM usage_ledger`
+	query := `SELECT id, key_id, request_id, request_resource, auth_id, auth_index, provider, provider_instance_id, model, alias, input_tokens, output_tokens, reasoning_tokens, reasoning_effort, cached_tokens, cache_read_tokens, cache_creation_tokens, total_tokens, first_token_latency_ms, total_latency_ms, usd, failed, created_at FROM usage_ledger`
 	if strings.TrimSpace(keyID) != "" {
 		query += ` WHERE key_id = ?`
 		args = append(args, strings.TrimSpace(keyID))
@@ -851,7 +854,7 @@ func (s *Store) ListUsage(ctx context.Context, keyID string, limit int) ([]Usage
 		var e UsageEntry
 		var created string
 		var failed int
-		if err := rows.Scan(&e.ID, &e.KeyID, &e.RequestID, &e.RequestResource, &e.AuthID, &e.AuthIndex, &e.Provider, &e.ProviderInstanceID, &e.Model, &e.Alias, &e.Detail.InputTokens, &e.Detail.OutputTokens, &e.Detail.ReasoningTokens, &e.Detail.CachedTokens, &e.Detail.CacheReadTokens, &e.Detail.CacheCreationTokens, &e.Detail.TotalTokens, &e.FirstTokenLatencyMS, &e.TotalLatencyMS, &e.USD, &failed, &created); err != nil {
+		if err := rows.Scan(&e.ID, &e.KeyID, &e.RequestID, &e.RequestResource, &e.AuthID, &e.AuthIndex, &e.Provider, &e.ProviderInstanceID, &e.Model, &e.Alias, &e.Detail.InputTokens, &e.Detail.OutputTokens, &e.Detail.ReasoningTokens, &e.Detail.ReasoningEffort, &e.Detail.CachedTokens, &e.Detail.CacheReadTokens, &e.Detail.CacheCreationTokens, &e.Detail.TotalTokens, &e.FirstTokenLatencyMS, &e.TotalLatencyMS, &e.USD, &failed, &created); err != nil {
 			return nil, err
 		}
 		e.Failed = failed != 0
@@ -861,13 +864,41 @@ func (s *Store) ListUsage(ctx context.Context, keyID string, limit int) ([]Usage
 	return out, rows.Err()
 }
 
+func normalizeReasoningEffort(value string) string {
+	value = strings.ToLower(strings.TrimSpace(value))
+	switch value {
+	case "higth":
+		return "high"
+	default:
+		return value
+	}
+}
+
 func CalculateUSD(rule PriceRule, detail UsageDetail) float64 {
-	cacheRead := max64(detail.CacheReadTokens, 0)
+	cacheRead := normalizedCacheReadTokens(detail)
 	input := max64(detail.InputTokens-cacheRead, 0)
 	output := max64(detail.OutputTokens, 0)
 	return float64(input)*rule.InputUSDPerMillion/1_000_000 +
 		float64(output)*rule.OutputUSDPerMillion/1_000_000 +
 		float64(cacheRead)*rule.CacheReadUSDPerMillion/1_000_000
+}
+
+func normalizedCacheReadTokens(detail UsageDetail) int64 {
+	if detail.CacheReadTokens > 0 {
+		return detail.CacheReadTokens
+	}
+	cached := max64(detail.CachedTokens, 0)
+	if cached == 0 {
+		return 0
+	}
+	cacheCreation := max64(detail.CacheCreationTokens, 0)
+	if cacheCreation > 0 {
+		if cached > cacheCreation {
+			return cached - cacheCreation
+		}
+		return 0
+	}
+	return cached
 }
 
 func (s *Store) CreateGroup(ctx context.Context, id, name, description string, members []GroupMember) (Group, error) {

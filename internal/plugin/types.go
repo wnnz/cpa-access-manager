@@ -1,9 +1,13 @@
 package plugin
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
+	"strings"
 )
 
 const (
@@ -37,6 +41,7 @@ const (
 	routePricesSync = "/plugins/" + PluginID + "/prices/sync"
 	routeUsage      = "/plugins/" + PluginID + "/usage"
 	routeStatus     = "/plugins/" + PluginID + "/status"
+	routeCPAUpdate  = "/plugins/" + PluginID + "/cpa/update"
 
 	resourceAPIKeys  = "/01-apikey.html"
 	resourceUsage    = "/02-usage-statistics.html"
@@ -177,8 +182,11 @@ type UsageHandleRequest struct {
 	KeyIDSnake             string         `json:"key_id"`
 	Principal              string         `json:"Principal"`
 	APIKey                 string         `json:"APIKey"`
+	APIKeyAlt              string         `json:"api_key"`
 	AuthID                 string         `json:"AuthID"`
+	AuthIDAlt              string         `json:"auth_id"`
 	AuthIndex              string         `json:"AuthIndex"`
+	AuthIndexAlt           string         `json:"auth_index"`
 	AuthType               string         `json:"AuthType"`
 	Source                 string         `json:"Source"`
 	RequestID              string         `json:"RequestID"`
@@ -201,19 +209,146 @@ type UsageHandleRequest struct {
 	LatencyMSAlt           int64          `json:"latency_ms"`
 	DurationMS             int64          `json:"DurationMS"`
 	DurationMSAlt          int64          `json:"duration_ms"`
+	ReasoningEffort        string         `json:"ReasoningEffort"`
+	ReasoningEffortAlt     string         `json:"reasoning_effort"`
 	Failed                 bool           `json:"Failed"`
 	Metadata               map[string]any `json:"Metadata"`
 	Detail                 UsageDetailIn  `json:"Detail"`
 }
 
 type UsageDetailIn struct {
-	InputTokens         int64 `json:"InputTokens"`
-	OutputTokens        int64 `json:"OutputTokens"`
-	ReasoningTokens     int64 `json:"ReasoningTokens"`
-	CachedTokens        int64 `json:"CachedTokens"`
-	CacheReadTokens     int64 `json:"CacheReadTokens"`
-	CacheCreationTokens int64 `json:"CacheCreationTokens"`
-	TotalTokens         int64 `json:"TotalTokens"`
+	InputTokens         int64  `json:"InputTokens"`
+	OutputTokens        int64  `json:"OutputTokens"`
+	ReasoningTokens     int64  `json:"ReasoningTokens"`
+	ReasoningEffort     string `json:"ReasoningEffort"`
+	CachedTokens        int64  `json:"CachedTokens"`
+	CacheReadTokens     int64  `json:"CacheReadTokens"`
+	CacheCreationTokens int64  `json:"CacheCreationTokens"`
+	TotalTokens         int64  `json:"TotalTokens"`
+}
+
+func (d *UsageDetailIn) UnmarshalJSON(raw []byte) error {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return err
+	}
+	d.InputTokens = firstJSONInt(fields, "InputTokens", "input_tokens", "inputTokens", "PromptTokens", "prompt_tokens", "promptTokens")
+	d.OutputTokens = firstJSONInt(fields, "OutputTokens", "output_tokens", "outputTokens", "CompletionTokens", "completion_tokens", "completionTokens")
+	d.ReasoningTokens = firstJSONInt(fields, "ReasoningTokens", "reasoning_tokens", "reasoningTokens")
+	d.ReasoningEffort = firstJSONString(fields, "ReasoningEffort", "reasoning_effort", "reasoningEffort")
+	if v := nestedJSONString(fields, "reasoning", "effort", "reasoning_effort"); v != "" {
+		d.ReasoningEffort = v
+	}
+	if v := nestedJSONInt(fields, "output_tokens_details", "reasoning_tokens"); v != 0 {
+		d.ReasoningTokens = v
+	}
+	if v := nestedJSONInt(fields, "completion_tokens_details", "reasoning_tokens"); v != 0 {
+		d.ReasoningTokens = v
+	}
+	d.CachedTokens = firstJSONInt(fields, "CachedTokens", "cached_tokens", "cachedTokens")
+	if v := nestedJSONInt(fields, "input_tokens_details", "cached_tokens"); v != 0 {
+		d.CachedTokens = v
+	}
+	if v := nestedJSONInt(fields, "prompt_tokens_details", "cached_tokens"); v != 0 {
+		d.CachedTokens = v
+	}
+	d.CacheReadTokens = firstJSONInt(fields, "CacheReadTokens", "cache_read_tokens", "cacheReadTokens", "CacheReadInputTokens", "cache_read_input_tokens", "cacheReadInputTokens")
+	d.CacheCreationTokens = firstJSONInt(fields, "CacheCreationTokens", "cache_creation_tokens", "cacheCreationTokens", "CacheCreationInputTokens", "cache_creation_input_tokens", "cacheCreationInputTokens")
+	d.TotalTokens = firstJSONInt(fields, "TotalTokens", "total_tokens", "totalTokens")
+	return nil
+}
+
+func firstJSONString(fields map[string]json.RawMessage, keys ...string) string {
+	for _, key := range keys {
+		raw, ok := fields[key]
+		if !ok {
+			continue
+		}
+		if value, ok := decodeJSONString(raw); ok {
+			return value
+		}
+	}
+	return ""
+}
+
+func nestedJSONString(fields map[string]json.RawMessage, objectKey string, keys ...string) string {
+	raw, ok := fields[objectKey]
+	if !ok {
+		return ""
+	}
+	var nested map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &nested); err != nil {
+		return ""
+	}
+	return firstJSONString(nested, keys...)
+}
+
+func firstJSONInt(fields map[string]json.RawMessage, keys ...string) int64 {
+	for _, key := range keys {
+		raw, ok := fields[key]
+		if !ok {
+			continue
+		}
+		if value, ok := decodeJSONInt(raw); ok {
+			return value
+		}
+	}
+	return 0
+}
+
+func nestedJSONInt(fields map[string]json.RawMessage, objectKey string, keys ...string) int64 {
+	raw, ok := fields[objectKey]
+	if !ok {
+		return 0
+	}
+	var nested map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &nested); err != nil {
+		return 0
+	}
+	return firstJSONInt(nested, keys...)
+}
+
+func decodeJSONInt(raw []byte) (int64, bool) {
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+	var value any
+	if err := decoder.Decode(&value); err != nil {
+		return 0, false
+	}
+	switch v := value.(type) {
+	case json.Number:
+		if i, err := v.Int64(); err == nil {
+			return i, true
+		}
+		if f, err := v.Float64(); err == nil {
+			return int64(f), true
+		}
+	case string:
+		if i, err := strconv.ParseInt(v, 10, 64); err == nil {
+			return i, true
+		}
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			return int64(f), true
+		}
+	}
+	return 0, false
+}
+
+func decodeJSONString(raw []byte) (string, bool) {
+	var value any
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return "", false
+	}
+	switch v := value.(type) {
+	case string:
+		return strings.TrimSpace(v), strings.TrimSpace(v) != ""
+	case map[string]any:
+		if effort, ok := v["effort"]; ok {
+			s := strings.TrimSpace(fmt.Sprint(effort))
+			return s, s != "" && s != "<nil>"
+		}
+	}
+	return "", false
 }
 
 type ManagementRegistrationResponse struct {

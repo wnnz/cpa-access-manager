@@ -843,7 +843,7 @@
                 <th style="width: 230px;">请求 / API Key</th>
                 <th style="width: 190px;">供应商 / 模型</th>
                 <th style="width: 190px;">请求资源</th>
-                <th style="width: 110px;">输入 Token</th>
+                <th style="width: 110px;">输入(净值)</th>
                 <th style="width: 110px;">读取缓存</th>
                 <th style="width: 110px;">输出 Token</th>
                 <th style="width: 110px;">消费</th>
@@ -1109,12 +1109,22 @@
       return auth?.label || auth?.name || auth?.email || entry.auth_id || "—";
     }
     function detail(entry) { return entry.detail || {}; }
-    function entryInput(entry) { return Number(detail(entry).input_tokens || 0); }
+    function entryRawInput(entry) { return Number(detail(entry).input_tokens || 0); }
     function entryCacheRead(entry) { return Number(detail(entry).cache_read_tokens || detail(entry).cached_tokens || 0); }
+    function entryInput(entry) { return Math.max(entryRawInput(entry) - entryCacheRead(entry), 0); }
     function entryOutput(entry) { return Number(detail(entry).output_tokens || 0); }
+    function entryReasoningEffort(entry) {
+      const effort = String(detail(entry).reasoning_effort || "").trim().toLowerCase();
+      return effort === "higth" ? "high" : effort;
+    }
+    function entryModelLabel(entry) {
+      const model = entry.model || entry.alias || "—";
+      const effort = entryReasoningEffort(entry);
+      return effort ? `${model} ${effort}` : model;
+    }
     function entryTotalTokens(entry) {
       const total = Number(detail(entry).total_tokens || 0);
-      return total || entryInput(entry) + entryOutput(entry);
+      return total || entryInput(entry) + entryCacheRead(entry) + entryOutput(entry);
     }
     function averageLatency(rows, field) {
       const values = rows.map(row => Number(row[field] || 0)).filter(Boolean);
@@ -1131,7 +1141,7 @@
       els.requests.textContent = formatNumber(rows.length);
       if (els.requestsSub) els.requestsSub.textContent = "所选范围内";
       els.tokens.textContent = formatTokens(total);
-      els.tokensSub.textContent = `输入: ${formatTokens(input)} / 读取缓存: ${formatTokens(cacheRead)} / 输出: ${formatTokens(output)}`;
+      els.tokensSub.textContent = `输入(净值): ${formatTokens(input)} / 读取缓存: ${formatTokens(cacheRead)} / 输出: ${formatTokens(output)}`;
       els.cost.textContent = formatUsd(cost);
       if (els.costSub) els.costSub.innerHTML = `<strong>成本 ${formatUsd(cost)}</strong> · 标准 ${formatUsd(cost)}`;
       els.firstLatency.textContent = formatLatency(averageLatency(rows, "first_token_latency_ms"));
@@ -1145,7 +1155,7 @@
           <tr data-od-id="usage-row-${index + 1}">
             <td class="status-text">${esc(formatDate(entry.created_at))}</td>
             <td class="name-cell"><strong>${esc(requestID)}</strong><span>${esc(keyName(entry))}</span></td>
-            <td class="provider-cell"><strong>${esc(entry.provider || "—")}</strong><span>${esc(entry.model || entry.alias || "—")}</span></td>
+            <td class="provider-cell"><strong>${esc(entry.provider || "—")}</strong><span>${esc(entryModelLabel(entry))}</span></td>
             <td class="status-text">${esc(resourceLabel(entry))}</td>
             <td class="num">${esc(formatNumber(entryInput(entry)))}</td>
             <td class="num">${esc(formatNumber(entryCacheRead(entry)))}</td>

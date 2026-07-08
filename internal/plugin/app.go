@@ -153,6 +153,7 @@ func (a *App) managementRegistration() ManagementRegistrationResponse {
 		{Method: http.MethodPut, Path: routePrices, Description: "Upsert price rules."},
 		{Method: http.MethodPost, Path: routePricesSync, Description: "Sync model price rules from public sources."},
 		{Method: http.MethodGet, Path: routeUsage, Description: "List usage ledger."},
+		{Method: http.MethodPost, Path: routeCPAUpdate, Description: "Pull and restart the CPA Docker service."},
 	}
 	return ManagementRegistrationResponse{
 		Routes: routes,
@@ -279,7 +280,7 @@ func (a *App) handleUsage(raw []byte) ([]byte, error) {
 	if err := json.Unmarshal(raw, &req); err != nil {
 		return OKEnvelope(map[string]any{})
 	}
-	keyIdentifier := firstNonEmpty(req.KeyID, req.KeyIDSnake, req.Principal, keyIDFromMetadata(req.Metadata), req.APIKey, req.Source)
+	keyIdentifier := firstNonEmpty(req.KeyID, req.KeyIDSnake, req.Principal, keyIDFromMetadata(req.Metadata), req.APIKey, req.APIKeyAlt, req.Source)
 	key, err := store.KeyByIDOrPresentedToken(context.Background(), keyIdentifier)
 	if err != nil {
 		return OKEnvelope(map[string]any{})
@@ -288,8 +289,8 @@ func (a *App) handleUsage(raw []byte) ([]byte, error) {
 		KeyID:           key.ID,
 		RequestID:       firstNonEmpty(req.RequestID, req.RequestIDAlt, metadataString(req.Metadata, "request_id", "id", "response_id")),
 		RequestResource: firstNonEmpty(req.RequestResource, req.RequestResourceAlt, metadataString(req.Metadata, "request_resource", "resource", "target", "path", "url")),
-		AuthID:          strings.TrimSpace(req.AuthID),
-		AuthIndex:       strings.TrimSpace(req.AuthIndex),
+		AuthID:          strings.TrimSpace(firstNonEmpty(req.AuthID, req.AuthIDAlt)),
+		AuthIndex:       strings.TrimSpace(firstNonEmpty(req.AuthIndex, req.AuthIndexAlt)),
 		Provider:        req.Provider,
 		Model:           firstNonEmpty(req.Model, req.Alias),
 		Alias:           req.Alias,
@@ -319,9 +320,15 @@ func (a *App) handleUsage(raw []byte) ([]byte, error) {
 		),
 		Failed: req.Failed,
 		Detail: access.UsageDetail{
-			InputTokens:         req.Detail.InputTokens,
-			OutputTokens:        req.Detail.OutputTokens,
-			ReasoningTokens:     req.Detail.ReasoningTokens,
+			InputTokens:     req.Detail.InputTokens,
+			OutputTokens:    req.Detail.OutputTokens,
+			ReasoningTokens: req.Detail.ReasoningTokens,
+			ReasoningEffort: firstNonEmpty(
+				req.Detail.ReasoningEffort,
+				req.ReasoningEffort,
+				req.ReasoningEffortAlt,
+				metadataString(req.Metadata, "reasoning_effort", "reasoningEffort", "ReasoningEffort"),
+			),
 			CachedTokens:        req.Detail.CachedTokens,
 			CacheReadTokens:     req.Detail.CacheReadTokens,
 			CacheCreationTokens: req.Detail.CacheCreationTokens,

@@ -905,33 +905,33 @@
             <article class="version-card" data-od-id="cpa-current-version-card">
               <span>当前版本</span>
               <strong id="currentCpaVersion">未知</strong>
-              <small>当前服务</small>
+              <small>当前实例未暴露版本号</small>
             </article>
             <article class="version-card" data-od-id="cpa-latest-version-card">
               <span>可更新版本</span>
-              <strong id="latestCpaVersion">未接入</strong>
-              <small>等待接口</small>
+              <strong id="latestCpaVersion">尚未检查</strong>
+              <small>来自 GitHub Releases</small>
             </article>
             <article class="version-card" data-od-id="cpa-release-channel-card">
               <span>发布渠道</span>
-              <strong>stable</strong>
-              <small>暂未配置</small>
+              <strong>GitHub Releases</strong>
+              <small>仅检查 latest</small>
             </article>
             <article class="version-card" data-od-id="cpa-last-check-card">
               <span>上次检查</span>
               <strong id="cpaVersionLastChecked">尚未检查</strong>
-              <small>等待接口</small>
+              <small>检查成功后更新</small>
             </article>
           </div>
           <div class="version-update-box" data-od-id="cpa-version-update-status">
             <div class="version-update-row">
-              <p class="version-status-text" id="cpaUpdateStatus">当前插件暂未接入 CPA 在线更新接口。</p>
-              <span class="version-status-text" id="cpaUpdateProgressText">未接入</span>
+              <p class="version-status-text" id="cpaUpdateStatus">请先保存管理密钥后再检查 CPA 版本。</p>
+              <span class="version-status-text" id="cpaUpdateProgressText">待检查</span>
             </div>
             <div class="version-progress" id="cpaUpdateProgress" hidden aria-hidden="true">
               <span id="cpaUpdateProgressBar"></span>
             </div>
-            <ul class="release-notes" data-od-id="cpa-version-release-notes"><li>当前页面已保留 Open Design 的版本面板布局。</li><li>在线更新需要 CPA 提供对应管理接口后再启用。</li><li>模型计费设置仍使用真实接口保存和同步。</li></ul>
+            <ul class="release-notes" data-od-id="cpa-version-release-notes"><li>通过 CPA 的 <code>/v0/management/latest-version</code> 检查 GitHub Releases 最新版本。</li><li>当前仅 Docker 部署支持 CPA 检查和更新入口。</li><li>启动更新后，CPA 服务会自动重启，请等待 20-30 秒后刷新页面。</li></ul>
           </div>
         </div>
       </section>
@@ -942,6 +942,7 @@
 
   <script>
     const api = "/v0/management/plugins/cpa-toolkit";
+    const managementAPI = "/v0/management";
     const sessionSecretStorageKey = "cpa-toolkit.management-key.session";
     const legacySessionSecretStorageKey = "cpa-access-manager.management-key.session";
     const legacySecretStorageKeys = ["cpa-toolkit.management-key", "cpa-access-manager.management-key"];
@@ -973,6 +974,9 @@
       savePrices: document.getElementById("savePricing") || document.getElementById("saveModelPrices"),
       checkCpaVersion: document.getElementById("checkCpaVersion"),
       updateCpaVersion: document.getElementById("updateCpaVersion"),
+      currentCpaVersion: document.getElementById("currentCpaVersion"),
+      latestCpaVersion: document.getElementById("latestCpaVersion"),
+      cpaVersionLastChecked: document.getElementById("cpaVersionLastChecked"),
       cpaUpdateStatus: document.getElementById("cpaUpdateStatus"),
       cpaUpdateProgressText: document.getElementById("cpaUpdateProgressText")
     };
@@ -981,6 +985,7 @@
     const priceState = { page: 1, pageSize: 50 };
     let pendingPricingDeleteIndex = null;
     let priceSearchDebounceTimer = null;
+    const versionState = { deployment: "unknown", latestVersion: "", lastCheckedText: "" };
 
     function base() { return session.apiBase || location.origin; }
     function secret() { return session.managementKey; }
@@ -1069,6 +1074,17 @@
       if (!res.ok) throw new Error((data && data.error) || text || res.status);
       return data;
     }
+    async function callManagement(path, opts = {}) {
+      cleanupLegacySecret();
+      const headers = Object.assign({ "content-type": "application/json" }, opts.headers || {});
+      if (secret()) headers.authorization = "Bearer " + secret();
+      const res = await fetch(base() + managementAPI + path, Object.assign({}, opts, { headers }));
+      const text = await res.text();
+      let data;
+      try { data = JSON.parse(text); } catch { data = text; }
+      if (!res.ok) throw new Error((data && data.error) || text || res.status);
+      return data;
+    }
 
     function showToast(message) {
       els.toast.textContent = message;
@@ -1083,6 +1099,132 @@
     function setError(element, visible) {
       element.classList.toggle("show", visible);
       element.setAttribute("aria-hidden", visible ? "false" : "true");
+    }
+    function setVersionStatus(message, progress) {
+      if (els.cpaUpdateStatus) els.cpaUpdateStatus.textContent = message;
+      if (els.cpaUpdateProgressText) els.cpaUpdateProgressText.textContent = progress;
+    }
+    function setVersionButtons({ canCheck = false, canUpdate = false, updateLabel = "在线更新暂未接入" } = {}) {
+      if (els.checkCpaVersion) els.checkCpaVersion.disabled = !canCheck;
+      if (els.updateCpaVersion) {
+        els.updateCpaVersion.disabled = !canUpdate;
+        els.updateCpaVersion.textContent = updateLabel;
+      }
+    }
+    function detectDeployment(dbPath) {
+      if (dbPath.startsWith("/CLIProxyAPI/")) return "docker";
+      if (dbPath.startsWith("/opt/cli-proxy-api/")) return "host";
+      return "unknown";
+    }
+    function extractLatestVersion(payload) {
+      if (typeof payload === "string") return payload.trim();
+      if (!payload || typeof payload !== "object") return "";
+      const candidates = [payload["latest-version"], payload.latest_version, payload.latestVersion, payload.version];
+      for (const value of candidates) {
+        if (typeof value === "string" && value.trim()) return value.trim();
+      }
+      return "";
+    }
+    async function loadVersionPanel() {
+      if (els.currentCpaVersion) els.currentCpaVersion.textContent = "未知";
+      if (!secret()) {
+        versionState.deployment = "unknown";
+        versionState.latestVersion = "";
+        versionState.lastCheckedText = "";
+        if (els.latestCpaVersion) els.latestCpaVersion.textContent = "尚未检查";
+        if (els.cpaVersionLastChecked) els.cpaVersionLastChecked.textContent = "尚未检查";
+        setVersionButtons({ canCheck: false, canUpdate: false, updateLabel: "需先保存密钥" });
+        setVersionStatus("请先保存管理密钥后再检查 CPA 版本。", "待检查");
+        return false;
+      }
+      try {
+        const status = await call("/status");
+        const dbPath = asString(status?.db_path ?? status?.dbPath ?? status?.DBPath);
+        versionState.deployment = detectDeployment(dbPath);
+        if (versionState.deployment === "docker") {
+          if (els.latestCpaVersion && !versionState.latestVersion) els.latestCpaVersion.textContent = "尚未检查";
+          if (els.cpaVersionLastChecked && !versionState.lastCheckedText) els.cpaVersionLastChecked.textContent = "尚未检查";
+          setVersionButtons({ canCheck: true, canUpdate: true, updateLabel: versionState.latestVersion ? `更新到 ${versionState.latestVersion}` : "更新 CPA" });
+          setVersionStatus("当前部署为 Docker，可检查 GitHub Releases 最新版本，也可直接更新并重启服务。", "可检查");
+          return true;
+        }
+        versionState.latestVersion = "";
+        versionState.lastCheckedText = "";
+        if (els.latestCpaVersion) els.latestCpaVersion.textContent = "仅 Docker";
+        if (els.cpaVersionLastChecked) els.cpaVersionLastChecked.textContent = "不适用";
+        setVersionButtons({ canCheck: false, canUpdate: false, updateLabel: "仅 Docker 支持" });
+        setVersionStatus("当前部署不是 Docker，CPA 检查/更新仅支持 Docker。", "不支持");
+        return false;
+      } catch (error) {
+        versionState.deployment = "unknown";
+        versionState.latestVersion = "";
+        versionState.lastCheckedText = "";
+        if (els.latestCpaVersion) els.latestCpaVersion.textContent = "尚未检查";
+        if (els.cpaVersionLastChecked) els.cpaVersionLastChecked.textContent = "尚未检查";
+        setVersionButtons({ canCheck: false, canUpdate: false, updateLabel: "验证失败" });
+        setVersionStatus(error.message || "验证当前部署失败。", "校验失败");
+        return false;
+      }
+    }
+    async function checkCpaVersion() {
+      const canCheck = await loadVersionPanel();
+      if (!canCheck) return;
+      try {
+        setVersionButtons({ canCheck: false, canUpdate: false, updateLabel: versionState.latestVersion ? `更新到 ${versionState.latestVersion}` : "更新 CPA" });
+        setVersionStatus("正在检查 GitHub Releases 最新版本。", "检查中");
+        const payload = await callManagement("/latest-version");
+        const latestVersion = extractLatestVersion(payload);
+        if (!latestVersion) throw new Error("CPA 未返回最新版本号。");
+        versionState.latestVersion = latestVersion;
+        versionState.lastCheckedText = new Date().toLocaleString();
+        if (els.latestCpaVersion) els.latestCpaVersion.textContent = latestVersion;
+        if (els.cpaVersionLastChecked) els.cpaVersionLastChecked.textContent = versionState.lastCheckedText;
+        setVersionStatus(`已检查到最新版本 ${latestVersion}。`, "已完成");
+        setVersionButtons({ canCheck: true, canUpdate: true, updateLabel: `更新到 ${latestVersion}` });
+        showToast(`CPA 最新版本：${latestVersion}`);
+      } catch (error) {
+        setVersionStatus(error.message || "检查更新失败。", "检查失败");
+        showToast(error.message || "检查更新失败");
+      } finally {
+        setVersionButtons({
+          canCheck: versionState.deployment === "docker",
+          canUpdate: versionState.deployment === "docker",
+          updateLabel: versionState.deployment === "docker"
+            ? (versionState.latestVersion ? `更新到 ${versionState.latestVersion}` : "更新 CPA")
+            : "仅 Docker 支持"
+        });
+      }
+    }
+    async function updateCpaVersion() {
+      const canUpdate = await loadVersionPanel();
+      if (!canUpdate || versionState.deployment !== "docker") return;
+      const target = versionState.latestVersion ? ` ${versionState.latestVersion}` : "";
+      if (!window.confirm(`将拉取最新 CPA 镜像并重启 cli-proxy-api 服务${target}，是否继续？`)) return;
+      try {
+        setVersionButtons({ canCheck: false, canUpdate: false, updateLabel: "更新中" });
+        setVersionStatus("正在启动 Docker 更新任务。", "更新中");
+        const result = await call("/cpa/update", {
+          method: "POST",
+          body: JSON.stringify({ latest_version: versionState.latestVersion || "" })
+        });
+        const message = typeof result?.message === "string" && result.message.trim()
+          ? result.message.trim()
+          : "CPA 更新已启动，请等待 20-30 秒后刷新页面。";
+        setVersionStatus(message, "已启动");
+        if (els.updateCpaVersion) els.updateCpaVersion.textContent = "更新已启动";
+        showToast("CPA 更新任务已启动");
+        window.setTimeout(() => {
+          loadVersionPanel().catch(() => {});
+        }, 30000);
+      } catch (error) {
+        setVersionStatus(error.message || "启动更新失败。", "更新失败");
+        setVersionButtons({
+          canCheck: versionState.deployment === "docker",
+          canUpdate: versionState.deployment === "docker",
+          updateLabel: versionState.latestVersion ? `更新到 ${versionState.latestVersion}` : "更新 CPA"
+        });
+        showToast(error.message || "启动更新失败");
+      }
     }
 
     function managementKeyVisibilityIcon(visible) {
@@ -1302,8 +1444,15 @@
       setError(els.managementKeyError, false);
       session.managementKey = value;
       saveSessionSecret(value);
+      versionState.latestVersion = "";
+      versionState.lastCheckedText = "";
       showToast("管理密钥已保存");
-      await loadPrices();
+      try {
+        await loadVersionPanel();
+        await loadPrices();
+      } catch (error) {
+        showToast(error.message || "加载失败");
+      }
     });
 
     els.addPriceRule.addEventListener("click", () => {
@@ -1434,16 +1583,11 @@
     });
     els.syncPrices.addEventListener("click", syncPrices);
     els.savePrices.addEventListener("click", savePrices);
-    if (els.checkCpaVersion) {
-      els.checkCpaVersion.addEventListener("click", () => {
-        if (els.cpaUpdateStatus) els.cpaUpdateStatus.textContent = "当前插件暂未接入 CPA 在线更新接口。";
-        if (els.cpaUpdateProgressText) els.cpaUpdateProgressText.textContent = "未接入";
-        if (els.updateCpaVersion) els.updateCpaVersion.disabled = true;
-        showToast("CPA 在线更新接口暂未接入");
-      });
-    }
+    if (els.checkCpaVersion) els.checkCpaVersion.addEventListener("click", checkCpaVersion);
+    if (els.updateCpaVersion) els.updateCpaVersion.addEventListener("click", updateCpaVersion);
 
     initSession();
+    loadVersionPanel().catch(() => {});
     loadPrices().catch(error => showToast(error.message || "加载失败"));
   </script>
 </body>

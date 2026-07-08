@@ -415,6 +415,7 @@ func TestAppUsageHandleRecordsRequestMetrics(t *testing.T) {
 			InputTokens:     100,
 			CacheReadTokens: 40,
 			OutputTokens:    20,
+			ReasoningEffort: "high",
 			TotalTokens:     120,
 		},
 	}
@@ -441,6 +442,65 @@ func TestAppUsageHandleRecordsRequestMetrics(t *testing.T) {
 	got := entries[0]
 	if got.RequestID != "req_123" || got.RequestResource != "OpenAI Primary" || got.FirstTokenLatencyMS != 850 || got.TotalLatencyMS != 4200 {
 		t.Fatalf("usage entry metrics = %#v", got)
+	}
+	if got.Detail.ReasoningEffort != "high" {
+		t.Fatalf("usage reasoning effort = %q, want high", got.Detail.ReasoningEffort)
+	}
+}
+
+func TestAppUsageHandleInfersCacheReadFromCachedTokens(t *testing.T) {
+	app, store := newTestApp(t)
+	instanceID := mustUpsertProviderInstance(t, store, "codex", "auth-a")
+	key, _, err := store.CreateKey(context.Background(), "team", true, access.Limits{}, []access.Binding{{TargetType: access.BindingProviderInstance, TargetID: instanceID}})
+	if err != nil {
+		t.Fatalf("CreateKey() error = %v", err)
+	}
+	if err := store.UpsertPriceRules(context.Background(), []access.PriceRule{{
+		Provider:               "codex",
+		Model:                  "gpt-test",
+		InputUSDPerMillion:     2,
+		OutputUSDPerMillion:    10,
+		CacheReadUSDPerMillion: 0.5,
+	}}); err != nil {
+		t.Fatalf("UpsertPriceRules() error = %v", err)
+	}
+
+	rawResp, err := app.HandleMethod(MethodUsageHandle, []byte(`{
+		"provider":"codex",
+		"model":"gpt-test",
+		"api_key":`+strconvQuote(key.ID)+`,
+		"auth_id":"auth-a",
+		"detail":{
+			"input_tokens":1000000,
+			"output_tokens":100000,
+			"cached_tokens":400000,
+			"total_tokens":1100000
+		}
+	}`))
+	if err != nil {
+		t.Fatalf("HandleMethod(usage.handle) error = %v", err)
+	}
+	var env Envelope
+	if err := json.Unmarshal(rawResp, &env); err != nil {
+		t.Fatalf("Unmarshal envelope error = %v", err)
+	}
+	if !env.OK {
+		t.Fatalf("usage envelope = %#v, want ok", env)
+	}
+
+	entries, err := store.ListUsage(context.Background(), key.ID, 10)
+	if err != nil {
+		t.Fatalf("ListUsage() error = %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("usage entries len = %d, want 1", len(entries))
+	}
+	got := entries[0]
+	if got.Detail.CacheReadTokens != 400_000 {
+		t.Fatalf("cache read tokens = %d, want 400000", got.Detail.CacheReadTokens)
+	}
+	if math.Abs(got.USD-2.4) > 0.0000001 {
+		t.Fatalf("usage USD = %v, want 2.4", got.USD)
 	}
 }
 

@@ -108,11 +108,13 @@ func (a *App) handleManagement(raw []byte) ([]byte, error) {
 		return OKEnvelope(a.handlePrices(store, req))
 	case routePricesSync:
 		return OKEnvelope(a.handlePriceSync(store, req))
-	case routeUsage:
-		return OKEnvelope(a.handleUsageAPI(store, req))
-	default:
-		return OKEnvelope(jsonManagement(http.StatusNotFound, map[string]any{"error": "route not found"}))
-	}
+		case routeUsage:
+			return OKEnvelope(a.handleUsageAPI(store, req))
+		case routeCPAUpdate:
+			return OKEnvelope(a.handleCPAUpdate(req, cfg))
+		default:
+			return OKEnvelope(jsonManagement(http.StatusNotFound, map[string]any{"error": "route not found"}))
+		}
 }
 
 func (a *App) handleKeys(store *access.Store, req ManagementRequest) ManagementResponse {
@@ -476,7 +478,7 @@ func statusFromError(err error) int {
 
 func normalizedPluginPath(path string) string {
 	path = strings.TrimSpace(path)
-	routes := []string{routeRotateKey, routeKeys, routeGroups, routeInventory, routePricesSync, routePrices, routeUsage, routeStatus}
+	routes := []string{routeRotateKey, routeKeys, routeGroups, routeInventory, routePricesSync, routePrices, routeUsage, routeCPAUpdate, routeStatus}
 	for _, route := range routes {
 		if strings.HasSuffix(path, route) || strings.Contains(path, route) {
 			return route

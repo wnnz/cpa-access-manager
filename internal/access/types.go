@@ -109,13 +109,14 @@ type PriceRule struct {
 }
 
 type UsageDetail struct {
-	InputTokens         int64 `json:"input_tokens"`
-	OutputTokens        int64 `json:"output_tokens"`
-	ReasoningTokens     int64 `json:"reasoning_tokens,omitempty"`
-	CachedTokens        int64 `json:"cached_tokens,omitempty"`
-	CacheReadTokens     int64 `json:"cache_read_tokens,omitempty"`
-	CacheCreationTokens int64 `json:"cache_creation_tokens,omitempty"`
-	TotalTokens         int64 `json:"total_tokens,omitempty"`
+	InputTokens         int64  `json:"input_tokens"`
+	OutputTokens        int64  `json:"output_tokens"`
+	ReasoningTokens     int64  `json:"reasoning_tokens,omitempty"`
+	ReasoningEffort     string `json:"reasoning_effort,omitempty"`
+	CachedTokens        int64  `json:"cached_tokens,omitempty"`
+	CacheReadTokens     int64  `json:"cache_read_tokens,omitempty"`
+	CacheCreationTokens int64  `json:"cache_creation_tokens,omitempty"`
+	TotalTokens         int64  `json:"total_tokens,omitempty"`
 }
 
 type UsageEntry struct {

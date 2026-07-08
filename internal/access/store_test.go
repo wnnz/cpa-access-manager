@@ -236,7 +236,7 @@ func TestRecordUsageStoresRequestMetadata(t *testing.T) {
 		Model:               "unpriced-model",
 		FirstTokenLatencyMS: 730,
 		TotalLatencyMS:      4100,
-		Detail:              UsageDetail{InputTokens: 12, CacheReadTokens: 3, OutputTokens: 34, TotalTokens: 46},
+		Detail:              UsageDetail{InputTokens: 12, CacheReadTokens: 3, OutputTokens: 34, ReasoningEffort: "higth", TotalTokens: 46},
 	})
 	if err != nil {
 		t.Fatalf("RecordUsage() error = %v", err)
@@ -251,6 +251,49 @@ func TestRecordUsageStoresRequestMetadata(t *testing.T) {
 	got := entries[0]
 	if got.RequestID != "req_store_1" || got.RequestResource != "openai-prod-2025.json" || got.FirstTokenLatencyMS != 730 || got.TotalLatencyMS != 4100 {
 		t.Fatalf("usage metadata = %#v", got)
+	}
+	if got.Detail.ReasoningEffort != "high" {
+		t.Fatalf("reasoning effort = %q, want high", got.Detail.ReasoningEffort)
+	}
+}
+
+func TestRecordUsageInfersCacheReadTokensFromCachedTokens(t *testing.T) {
+	store := newTestStore(t)
+	key, _, err := store.CreateKey(context.Background(), "team", true, Limits{}, []Binding{{TargetType: BindingAuthID, TargetID: "auth-a"}})
+	if err != nil {
+		t.Fatalf("CreateKey() error = %v", err)
+	}
+	if err := store.UpsertPriceRules(context.Background(), []PriceRule{{
+		Provider:               "codex",
+		Model:                  "gpt-test",
+		InputUSDPerMillion:     2,
+		OutputUSDPerMillion:    10,
+		CacheReadUSDPerMillion: 0.5,
+	}}); err != nil {
+		t.Fatalf("UpsertPriceRules() error = %v", err)
+	}
+
+	entry, err := store.RecordUsage(context.Background(), UsageEntry{
+		KeyID:    key.ID,
+		Provider: "codex",
+		Model:    "gpt-test",
+		Detail:   UsageDetail{InputTokens: 1_000_000, OutputTokens: 100_000, CachedTokens: 400_000},
+	})
+	if err != nil {
+		t.Fatalf("RecordUsage() error = %v", err)
+	}
+	if entry.Detail.CacheReadTokens != 400_000 {
+		t.Fatalf("recorded cache read tokens = %d, want 400000", entry.Detail.CacheReadTokens)
+	}
+	if math.Abs(entry.USD-2.4) > 0.0000001 {
+		t.Fatalf("RecordUsage() USD = %v, want 2.4", entry.USD)
+	}
+	entries, err := store.ListUsage(context.Background(), key.ID, 10)
+	if err != nil {
+		t.Fatalf("ListUsage() error = %v", err)
+	}
+	if len(entries) != 1 || entries[0].Detail.CacheReadTokens != 400_000 {
+		t.Fatalf("ledger entry = %#v, want inferred cache read tokens", entries)
 	}
 }
 
@@ -452,6 +495,22 @@ func TestCalculateUSD_UsesCacheReadPriceForCachedInput(t *testing.T) {
 		InputTokens:     1_000_000,
 		OutputTokens:    100_000,
 		CacheReadTokens: 400_000,
+	})
+	want := 2.4
+	if math.Abs(got-want) > 0.0000001 {
+		t.Fatalf("CalculateUSD() = %v, want %v", got, want)
+	}
+}
+
+func TestCalculateUSD_UsesCachedTokensAsCacheReadFallback(t *testing.T) {
+	got := CalculateUSD(PriceRule{
+		InputUSDPerMillion:     2,
+		OutputUSDPerMillion:    10,
+		CacheReadUSDPerMillion: 0.5,
+	}, UsageDetail{
+		InputTokens:  1_000_000,
+		OutputTokens: 100_000,
+		CachedTokens: 400_000,
 	})
 	want := 2.4
 	if math.Abs(got-want) > 0.0000001 {
