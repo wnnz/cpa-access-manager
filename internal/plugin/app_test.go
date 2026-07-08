@@ -317,6 +317,47 @@ func TestAppManagementRotateRouteUsesExactNormalizedPath(t *testing.T) {
 	}
 }
 
+func TestAppManagementStatusIncludesCurrentCPAVersion(t *testing.T) {
+	app, _ := newTestApp(t)
+	cpa := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v0/management/status" {
+			t.Fatalf("path = %q, want /v0/management/status", r.URL.Path)
+		}
+		if got := r.Header.Get("authorization"); got != "Bearer management-secret" {
+			t.Fatalf("authorization = %q, want bearer token", got)
+		}
+		w.Header().Set("X-Cpa-Version", "v7.2.53")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"status":"ok"}`))
+	}))
+	t.Cleanup(cpa.Close)
+	t.Setenv("CPA_ACCESS_MANAGER_CPA_BASE", cpa.URL)
+
+	rawReq, _ := json.Marshal(ManagementRequest{
+		Method:  http.MethodGet,
+		Path:    "/v0/management/plugins/cpa-toolkit/status",
+		Headers: http.Header{"Authorization": []string{"Bearer management-secret"}},
+	})
+	rawResp, err := app.HandleMethod(MethodManagementHandle, rawReq)
+	if err != nil {
+		t.Fatalf("HandleMethod(management.handle) error = %v", err)
+	}
+	env, resp := decodeEnvelopeResult[ManagementResponse](t, rawResp)
+	if !env.OK {
+		t.Fatalf("management envelope = %#v, want ok", env)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("management status = %d body=%s, want 200", resp.StatusCode, string(resp.Body))
+	}
+	var body statusResponse
+	if err := json.Unmarshal(resp.Body, &body); err != nil {
+		t.Fatalf("Unmarshal management body error = %v; body=%s", err, string(resp.Body))
+	}
+	if body.CurrentCPAVersion != "v7.2.53" {
+		t.Fatalf("current CPA version = %q, want v7.2.53", body.CurrentCPAVersion)
+	}
+}
+
 func TestAppManagementRegistersMultipleResourceMenus(t *testing.T) {
 	app, _ := newTestApp(t)
 
@@ -341,7 +382,10 @@ func TestAppManagementRegistersMultipleResourceMenus(t *testing.T) {
 	if got[resourceUsage] != "使用统计" {
 		t.Fatalf("usage resource menu = %q, want 使用统计", got[resourceUsage])
 	}
-	wantOrder := []string{resourceAPIKeys, resourceUsage, resourceSettings}
+	if got[resourceSharedUI] != "" {
+		t.Fatalf("shared stylesheet menu = %q, want empty", got[resourceSharedUI])
+	}
+	wantOrder := []string{resourceAPIKeys, resourceUsage, resourceSettings, resourceSharedUI}
 	wantSortedOrder := append([]string(nil), wantOrder...)
 	if len(resp.Resources) != len(wantOrder) {
 		t.Fatalf("resource count = %d, want %d", len(resp.Resources), len(wantOrder))
@@ -373,6 +417,7 @@ func TestAppManagementResourcePages(t *testing.T) {
 		{"/v0/resource/plugins/cpa-toolkit/apikey.html", "API Key 管理"},
 		{"/v0/resource/plugins/cpa-toolkit/settings.html", "模型计费设置"},
 		{"/v0/resource/plugins/cpa-toolkit/usage-statistics.html", "使用统计"},
+		{"/v0/resource/plugins/cpa-toolkit/shared-ui.css", ".table-shell"},
 		{"/v0/resource/plugins/cpa-toolkit/index.html", "API Key 管理"},
 	} {
 		req := ManagementRequest{Method: http.MethodGet, Path: tc.path}

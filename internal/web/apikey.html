@@ -3,6 +3,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>API Key 管理</title>
+  <link rel="stylesheet" href="shared-ui.css">
   <style>
     :root {
       --bg: #f7f5f1;
@@ -16,6 +17,8 @@
       --primary: #12b981;
       --primary-hover: #079467;
       --primary-soft: #e5f8f0;
+      --btn-primary: #c96442;
+      --btn-primary-hover: #b35739;
       --success-soft: #dcf8ec;
       --warning-soft: #fff2d6;
       --danger: #d45549;
@@ -44,13 +47,13 @@
       font-size: 14px;
     }
 
-    button, input, select { font: inherit; }
-    button { border: 0; cursor: pointer; }
-
     .page {
       width: min(1552px, calc(100vw - 56px));
+      min-height: 100vh;
       margin: 0 auto;
       padding: 18px 0 36px;
+      display: flex;
+      flex-direction: column;
     }
 
     .topbar {
@@ -87,71 +90,6 @@
       justify-content: flex-end;
       margin-left: auto;
       flex: 0 0 auto;
-    }
-
-    .btn {
-      height: 36px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      padding: 0 13px;
-      border-radius: 8px;
-      border: 1px solid var(--border-strong);
-      background: #ebe8e2;
-      color: var(--fg);
-      text-decoration: none;
-      font-weight: 700;
-      white-space: nowrap;
-      transition:
-        color var(--motion-fast) var(--ease-out),
-        background-color var(--motion-fast) var(--ease-out),
-        border-color var(--motion-fast) var(--ease-out),
-        box-shadow var(--motion-fast) var(--ease-out),
-        transform var(--motion-fast) var(--ease-out);
-    }
-
-    .btn:hover {
-      border-color: #cfc7bc;
-      color: var(--fg);
-      background: #e2ded6;
-      transform: translateY(-1px);
-    }
-
-    .btn:active {
-      transform: translateY(0);
-    }
-
-    .btn.primary {
-      color: #fff;
-      border-color: var(--primary);
-      background: var(--primary);
-      box-shadow: none;
-    }
-
-    .btn.primary:hover {
-      color: #fff;
-      background: var(--primary-hover);
-      border-color: var(--primary-hover);
-    }
-
-    .btn.primary[data-od-id="create-api-key-button"],
-    .btn.primary[data-od-id="save-api-key-button"] {
-      border-color: #c96442;
-      background: #c96442;
-    }
-
-    .btn.primary[data-od-id="create-api-key-button"]:hover,
-    .btn.primary[data-od-id="save-api-key-button"]:hover {
-      border-color: #b35739;
-      background: #b35739;
-    }
-
-    .btn svg,
-    .icon-btn svg {
-      width: 16px;
-      height: 16px;
-      stroke-width: 2;
     }
 
     .refresh-group {
@@ -258,6 +196,10 @@
     }
 
     .card {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
       border: 0;
       border-radius: 0;
       background: transparent;
@@ -290,7 +232,7 @@
       flex-direction: column;
       align-items: stretch;
       justify-content: flex-start;
-      gap: 24px;
+      gap: 0;
       padding: 0;
       border-bottom: 0;
       background: transparent;
@@ -300,20 +242,26 @@
     .right-tools {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       flex-wrap: wrap;
     }
 
     .right-tools {
       width: 100%;
+      min-height: 56px;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      border-radius: 10px 10px 0 0;
+      background: var(--surface);
     }
 
     .left-tools {
-      min-height: 52px;
-      padding: 9px 14px;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      background: rgba(253, 251, 248, 0.82);
+      min-height: 56px;
+      padding: 10px 14px;
+      border: 0;
+      border-bottom: 1px solid var(--border);
+      border-radius: 10px 10px 0 0;
+      background: var(--surface);
     }
 
     .tabs {
@@ -373,170 +321,26 @@
       height: 16px;
     }
 
-    input,
-    select {
-      height: 34px;
-      border: 1px solid var(--border-strong);
-      border-radius: 8px;
-      background: var(--surface);
-      color: var(--fg);
-      outline: none;
-      transition:
-        border-color var(--motion-fast) var(--ease-out),
-        box-shadow var(--motion-fast) var(--ease-out);
-    }
-
-    input { padding: 0 10px; }
-
-    select {
-      min-width: 156px;
-      padding: 0 30px 0 10px;
-    }
-
-    .right-tools select {
-      height: 36px;
-      background-color: #ebe8e2;
-      font-weight: 700;
-    }
-
     .search input {
       width: 100%;
-      height: 36px;
       padding-left: 34px;
       font-size: 14px;
     }
 
-    input:focus,
-    select:focus {
-      border-color: #c96442;
-      box-shadow: 0 0 0 4px rgba(201, 100, 66, 0.16);
-    }
-
     .styled-select {
-      position: relative;
-      display: inline-flex;
-      min-width: 156px;
-      vertical-align: middle;
+      min-width: 124px;
     }
 
-    .styled-select select {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      opacity: 0;
-      pointer-events: none;
+    .right-tools .styled-select {
+      min-width: 118px;
     }
 
-    .styled-select-trigger {
-      width: 100%;
-      height: 36px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      padding: 0 10px 0 12px;
-      border: 1px solid var(--border-strong);
-      border-radius: 8px;
-      color: var(--fg);
-      background: var(--surface);
-      box-shadow: none;
-      font-size: 13px;
-      font-weight: 800;
-      cursor: pointer;
-      transition:
-        border-color var(--motion-fast) var(--ease-out),
-        box-shadow var(--motion-fast) var(--ease-out),
-        background-color var(--motion-fast) var(--ease-out);
+    .right-tools .styled-select-trigger {
+      padding-inline: 10px 8px;
     }
 
-    .styled-select-value {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .styled-select-trigger svg {
-      width: 14px;
-      height: 14px;
-      flex: 0 0 auto;
-      color: #5f574d;
-      transition: transform var(--motion-fast) var(--ease-out);
-    }
-
-    .styled-select-trigger:hover,
-    .styled-select-trigger:focus-visible,
-    .styled-select-trigger[aria-expanded="true"] {
-      border-color: #c96442;
-      box-shadow: 0 0 0 4px rgba(201, 100, 66, 0.16);
-      outline: none;
-    }
-
-    .styled-select-trigger[aria-expanded="true"] svg {
-      transform: rotate(180deg);
-    }
-
-    .styled-select-menu {
-      position: absolute;
-      top: calc(100% + 6px);
-      right: 0;
-      z-index: 12;
-      min-width: 100%;
-      width: max-content;
-      display: grid;
-      gap: 2px;
-      padding: 5px;
-      border: 1px solid #d8d0c4;
-      border-radius: 10px;
-      background: #fffefd;
-      box-shadow: 0 16px 34px rgba(60, 47, 34, 0.16);
-    }
-
-    .styled-select-menu[hidden] {
-      display: none;
-    }
-
-    .styled-select-option {
-      height: 30px;
-      border: 0;
-      border-radius: 7px;
-      color: #4f463d;
-      background: transparent;
-      font-size: 13px;
-      font-weight: 800;
-      text-align: left;
-      padding: 0 10px;
-      cursor: pointer;
-      white-space: nowrap;
-      transition:
-        color var(--motion-fast) var(--ease-out),
-        background-color var(--motion-fast) var(--ease-out);
-    }
-
-    .styled-select-option:hover,
-    .styled-select-option:focus-visible {
-      background: #f1ebe2;
-      outline: none;
-    }
-
-    .styled-select-option[aria-selected="true"] {
-      color: #fffefd;
-      background: #c96442;
-    }
-
-    .table-wrap {
-      margin-top: 24px;
-      overflow-x: auto;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      background: var(--surface-muted);
-    }
-
-    table {
-      width: 100%;
-      min-width: 1410px;
-      border-collapse: separate;
-      border-spacing: 0;
-      table-layout: fixed;
+    .table-shell {
+      margin-top: 14px;
     }
 
     .col-key { width: 250px; }
@@ -548,49 +352,15 @@
     .col-status { width: 112px; }
     .col-actions { width: 176px; }
 
-    thead { display: table-header-group; }
-
-    tbody tr {
-      background: var(--surface);
-      transition:
-        background-color var(--motion-fast) var(--ease-out);
-    }
-
-    th {
-      height: 40px;
-      padding: 0 14px;
-      color: #5f574d;
-      background: #e9e5dc;
-      border-bottom: 1px solid var(--border);
-      text-align: left;
-      font-size: 12px;
-      font-weight: 700;
-      white-space: nowrap;
-    }
-
-    th:first-child { border-top-left-radius: 9px; }
+    th:first-child { border-top-left-radius: 0; }
     th:last-child {
-      border-top-right-radius: 9px;
+      border-top-right-radius: 0;
       text-align: right;
-    }
-
-    td {
-      padding: 14px;
-      border-bottom: 1px solid var(--border);
-      vertical-align: middle;
     }
 
     td.actions-cell {
       padding-left: 8px;
       padding-right: 10px;
-    }
-
-    tbody tr:last-child td {
-      border-bottom: 0;
-    }
-
-    tbody tr:hover {
-      background: #f4f0e8;
     }
 
     .key-cell {
@@ -832,47 +602,6 @@
       text-align: center;
     }
 
-    .icon-btn {
-      width: 34px;
-      height: 34px;
-      display: grid;
-      place-items: center;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: #5f574d;
-      background: #f8f6f1;
-      transition:
-        color var(--motion-fast) var(--ease-out),
-        background-color var(--motion-fast) var(--ease-out),
-        transform var(--motion-fast) var(--ease-out);
-    }
-
-    .icon-btn:hover {
-      color: var(--fg);
-      background: #eee9e1;
-      transform: translateY(-1px);
-    }
-
-    .icon-btn.danger {
-      color: #b8573f;
-    }
-
-    .icon-btn.danger.confirming {
-      color: #fff;
-      border-color: #c96442;
-      background: #c96442;
-    }
-
-    .icon-btn.danger:hover {
-      color: #fff;
-      border-color: #c96442;
-      background: #c96442;
-    }
-
-    .icon-btn:active {
-      transform: translateY(0);
-    }
-
     .muted { color: var(--muted); }
 
     .drawer-backdrop {
@@ -995,7 +724,6 @@
     .field input,
     .field select {
       width: 100%;
-      height: 36px;
     }
 
     .field .styled-select {
@@ -1182,24 +910,6 @@
       .form-grid { grid-template-columns: 1fr; }
 
     }
-    .notice {
-      display: none;
-      margin: 0 0 14px;
-      padding: 12px 14px;
-      border: 1px solid rgba(15, 159, 103, 0.26);
-      border-radius: 10px;
-      background: rgba(15, 159, 103, 0.08);
-      color: var(--fg);
-      font-size: 13px;
-      line-height: 1.5;
-    }
-
-    .notice.show { display: block; }
-    .notice.error {
-      border-color: rgba(212, 85, 73, 0.36);
-      background: rgba(212, 85, 73, 0.1);
-      color: #8e2f27;
-    }
   </style>
 </head>
 <body>
@@ -1211,7 +921,7 @@
     </header>
 
     <section class="card" data-od-id="api-key-table-card">
-      <div id="notice" class="notice" role="status" aria-live="polite"></div>
+      <div class="table-shell ui-table-shell ui-table-shell--fill ui-table-shell--with-toolbar" data-od-id="api-key-table-shell">
       <div class="toolbar" data-od-id="table-toolbar">
         <div class="right-tools">
           <div class="search" data-od-id="global-search">
@@ -1238,12 +948,12 @@
             <div class="refresh-group" data-od-id="refresh-control-group">
               <span class="refresh-countdown" id="refreshCountdown" data-od-id="refresh-countdown" hidden></span>
               <div class="refresh-action" data-od-id="refresh-split-button">
-                <button class="btn" id="refreshBtn" data-od-id="refresh-button">
+                <button class="btn ui-button" id="refreshBtn" data-od-id="refresh-button">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path><path d="M3 21v-5h5"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M21 3v5h-5"></path></svg>
                   刷新
                 </button>
                 <div class="auto-refresh-wrap">
-                  <button class="btn auto-refresh-toggle" id="autoRefreshToggle" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="自动刷新间隔" data-od-id="auto-refresh-toggle">
+                  <button class="btn ui-button auto-refresh-toggle" id="autoRefreshToggle" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="自动刷新间隔" data-od-id="auto-refresh-toggle">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 9 6 6 6-6"></path></svg>
                   </button>
                   <div class="auto-refresh-menu" id="autoRefreshMenu" role="menu" aria-label="自动刷新间隔" hidden data-od-id="auto-refresh-menu">
@@ -1256,7 +966,7 @@
                 </div>
               </div>
             </div>
-            <button class="btn primary" id="openCreate" data-od-id="create-api-key-button">
+            <button class="btn ui-button primary ui-button--primary" id="openCreate" data-od-id="create-api-key-button">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
               新建 API Key
             </button>
@@ -1264,32 +974,50 @@
         </div>
       </div>
 
-      <div class="table-wrap">
-        <table>
-          <colgroup>
-            <col class="col-key">
-            <col class="col-type">
-            <col class="col-resources">
-            <col class="col-quota">
-            <col class="col-usage">
-            <col class="col-last">
-            <col class="col-status">
-            <col class="col-actions">
-          </colgroup>
-          <thead>
-            <tr>
-              <th>API Key</th>
-              <th>AI 类型</th>
-              <th>关联资源</th>
-              <th>额度使用</th>
-              <th>今日用量</th>
-              <th>最近调用</th>
-              <th>状态</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody id="keyRows" data-od-id="api-key-table-body"></tbody>
-        </table>
+        <div class="table-wrap ui-table-wrap ui-table-wrap--fill">
+          <table class="ui-table ui-table--api">
+            <colgroup>
+              <col class="col-key">
+              <col class="col-type">
+              <col class="col-resources">
+              <col class="col-quota">
+              <col class="col-usage">
+              <col class="col-last">
+              <col class="col-status">
+              <col class="col-actions">
+            </colgroup>
+            <thead>
+              <tr>
+                <th>API Key</th>
+                <th>AI 类型</th>
+                <th>关联资源</th>
+                <th>额度使用</th>
+                <th>今日用量</th>
+                <th>最近调用</th>
+                <th>状态</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="keyRows" data-od-id="api-key-table-body"></tbody>
+          </table>
+        </div>
+        <div class="table-pagination ui-table-pagination ui-table-pagination--rounded-bottom" data-od-id="api-key-table-pagination">
+          <div class="table-page-actions">
+            <span class="table-page-summary" id="keyPageSummary" data-od-id="api-key-page-summary">共0条数据</span>
+            <label class="table-page-size" for="keyPageSize">
+              每页
+              <select class="ui-input" id="keyPageSize" aria-label="API Key 每页显示数量" data-od-id="api-key-page-size">
+                <option value="10">10</option>
+                <option value="20" selected>20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+            </label>
+            <button class="btn ui-button" id="keyPrevPage" type="button" data-od-id="api-key-prev-page">上一页</button>
+            <span class="table-page-indicator" id="keyPageIndicator" data-od-id="api-key-page-indicator">第 1 / 1 页</span>
+            <button class="btn ui-button" id="keyNextPage" type="button" data-od-id="api-key-next-page">下一页</button>
+          </div>
+        </div>
       </div>
     </section>
   </main>
@@ -1311,7 +1039,6 @@
           <div class="field full">
             <label for="keyName">Key 名称</label>
             <input id="keyName" required="" placeholder="例如：prod-chat-api">
-            <div id="nameError" class="error" role="alert" aria-hidden="true">请输入 Key 名称。</div>
           </div>
 
           <div class="field quota-row-field">
@@ -1381,6 +1108,7 @@
     let autoRefreshInterval = 0;
     let autoRefreshRemaining = 0;
     let autoRefreshTimer = null;
+    let keyCurrentPage = 1;
     const reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
     const els = {
@@ -1405,7 +1133,12 @@
       refreshCountdown: $("refreshCountdown"),
       autoRefreshToggle: $("autoRefreshToggle"),
       autoRefreshMenu: $("autoRefreshMenu"),
-      autoRefreshOptions: Array.from(document.querySelectorAll(".auto-refresh-option"))
+      autoRefreshOptions: Array.from(document.querySelectorAll(".auto-refresh-option")),
+      keyPageSummary: $("keyPageSummary"),
+      keyPageSize: $("keyPageSize"),
+      keyPrevPage: $("keyPrevPage"),
+      keyNextPage: $("keyNextPage"),
+      keyPageIndicator: $("keyPageIndicator")
     };
 
     function closeStyledSelects(exceptMenu = null) {
@@ -1590,6 +1323,10 @@
       }, 1800);
     }
     function setNotice(message, isError = false) {
+      if (!els.notice) {
+        if (message) showToast(message);
+        return;
+      }
       if (!message) {
         els.notice.className = "notice";
         els.notice.innerHTML = "";
@@ -1867,7 +1604,19 @@
           && haystack.includes(term);
       });
 
-      els.rows.innerHTML = filtered.map((key, filteredIndex) => {
+      const pageSize = Math.max(1, Number(els.keyPageSize.value) || 20);
+      const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+      if (keyCurrentPage > totalPages) keyCurrentPage = totalPages;
+      const start = (keyCurrentPage - 1) * pageSize;
+      const pageRows = filtered.slice(start, start + pageSize);
+
+      els.keyPageSummary.textContent = `共${filtered.length}条数据`;
+      els.keyPageIndicator.textContent = `第 ${keyCurrentPage} / ${totalPages} 页`;
+      els.keyPrevPage.disabled = keyCurrentPage <= 1;
+      els.keyNextPage.disabled = keyCurrentPage >= totalPages;
+
+      els.rows.innerHTML = pageRows.map((key, pageIndex) => {
+        const filteredIndex = start + pageIndex;
         const status = keyStatus(key);
         const provider = keyProvider(key);
         const refs = keyResourceRefs(key);
@@ -1902,7 +1651,7 @@
         `;
       }).join("");
 
-      if (!filtered.length) {
+      if (!pageRows.length) {
         els.rows.innerHTML = `<tr class="empty-row"><td colspan="8">没有匹配的 API Key</td></tr>`;
       }
     }
@@ -1924,6 +1673,7 @@
         && (five === null || total === null || five <= total);
     }
     function setError(element, visible) {
+      if (!element) return;
       element.classList.toggle("show", visible);
       element.setAttribute("aria-hidden", visible ? "false" : "true");
     }
@@ -2106,13 +1856,18 @@
       startAutoRefreshCountdown();
     }
 
-    els.search.addEventListener("input", () => { if (!clearPendingDelete()) renderRows(); });
+    function resetKeyPage() {
+      keyCurrentPage = 1;
+    }
+
+    els.search.addEventListener("input", () => { resetKeyPage(); if (!clearPendingDelete()) renderRows(); });
     els.statusFilter.addEventListener("change", () => {
       state.activeStatus = els.statusFilter.value;
+      resetKeyPage();
       if (!clearPendingDelete()) renderRows();
     });
-    els.typeFilter.addEventListener("change", () => { if (!clearPendingDelete()) renderRows(); });
-    els.resourceFilter.addEventListener("change", () => { if (!clearPendingDelete()) renderRows(); });
+    els.typeFilter.addEventListener("change", () => { resetKeyPage(); if (!clearPendingDelete()) renderRows(); });
+    els.resourceFilter.addEventListener("change", () => { resetKeyPage(); if (!clearPendingDelete()) renderRows(); });
     els.aiType.addEventListener("change", () => {
       renderPicker([]);
       setError(els.resourceError, false);
@@ -2143,6 +1898,19 @@
       const option = event.target.closest(".auto-refresh-option");
       if (!option) return;
       setAutoRefreshInterval(Number(option.dataset.interval));
+    });
+    els.keyPageSize.addEventListener("change", () => {
+      resetKeyPage();
+      renderRows();
+    });
+    els.keyPrevPage.addEventListener("click", () => {
+      if (keyCurrentPage <= 1) return;
+      keyCurrentPage -= 1;
+      renderRows();
+    });
+    els.keyNextPage.addEventListener("click", () => {
+      keyCurrentPage += 1;
+      renderRows();
     });
     document.addEventListener("click", event => {
       if (els.autoRefreshMenu.hidden) return;

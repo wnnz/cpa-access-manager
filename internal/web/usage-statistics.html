@@ -3,7 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>使用统计</title>
+  <title>用量统计</title>
+  <link rel="stylesheet" href="shared-ui.css">
   <style>
     :root {
       --bg: #f7f5f1;
@@ -19,6 +20,8 @@
       --primary-soft: #e5f8f0;
       --accent: #c96442;
       --accent-hover: #b35739;
+      --btn-primary: var(--accent);
+      --btn-primary-hover: var(--accent-hover);
       --danger: #d45549;
       --radius: 10px;
       --shadow: 0 14px 34px rgba(37, 31, 22, 0.08);
@@ -42,12 +45,6 @@
       font-family: var(--font);
       font-size: 14px;
     }
-
-    button,
-    input,
-    select { font: inherit; }
-
-    button { border: 0; cursor: pointer; }
 
     .page {
       width: min(1552px, calc(100vw - 56px));
@@ -91,49 +88,6 @@
       flex-wrap: wrap;
     }
 
-    .btn {
-      height: 36px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      padding: 0 13px;
-      border-radius: 8px;
-      border: 1px solid var(--border-strong);
-      background: #ebe8e2;
-      color: var(--fg);
-      text-decoration: none;
-      font-weight: 700;
-      white-space: nowrap;
-      transition:
-        color var(--motion-fast) var(--ease-out),
-        background-color var(--motion-fast) var(--ease-out),
-        border-color var(--motion-fast) var(--ease-out),
-        transform var(--motion-fast) var(--ease-out);
-    }
-
-    .btn:hover {
-      border-color: #cfc7bc;
-      color: var(--fg);
-      background: #e2ded6;
-      transform: translateY(-1px);
-    }
-
-    .btn:active { transform: translateY(0); }
-
-    .btn.primary {
-      color: #fff;
-      border-color: var(--accent);
-      background: var(--accent);
-    }
-
-    .btn.primary:hover {
-      color: #fff;
-      border-color: var(--accent-hover);
-      background: var(--accent-hover);
-    }
-
-    .btn svg,
     .metric-icon svg {
       width: 16px;
       height: 16px;
@@ -239,135 +193,8 @@
       background: #eee9e1;
     }
 
-    select,
-    input {
-      height: 38px;
-      border: 1px solid var(--border-strong);
-      border-radius: 8px;
-      background: var(--surface);
-      color: var(--fg);
-      outline: none;
-      padding: 0 34px 0 11px;
-      transition:
-        border-color var(--motion-fast) var(--ease-out),
-        box-shadow var(--motion-fast) var(--ease-out);
-    }
-
-    select:focus,
-    input:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 4px rgba(201, 100, 66, 0.16);
-    }
-
     .styled-select {
-      position: relative;
-      display: inline-flex;
       min-width: 122px;
-      vertical-align: middle;
-    }
-
-    .styled-select select {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .styled-select-trigger {
-      width: 100%;
-      height: 36px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      padding: 0 10px 0 12px;
-      border: 1px solid var(--border-strong);
-      border-radius: 8px;
-      color: var(--fg);
-      background: var(--surface);
-      box-shadow: none;
-      font-size: 13px;
-      font-weight: 800;
-      cursor: pointer;
-      transition:
-        border-color var(--motion-fast) var(--ease-out),
-        box-shadow var(--motion-fast) var(--ease-out),
-        background-color var(--motion-fast) var(--ease-out);
-    }
-
-    .styled-select-value {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .styled-select-trigger svg {
-      width: 14px;
-      height: 14px;
-      flex: 0 0 auto;
-      color: #5f574d;
-      transition: transform var(--motion-fast) var(--ease-out);
-    }
-
-    .styled-select-trigger:hover,
-    .styled-select-trigger:focus-visible,
-    .styled-select-trigger[aria-expanded="true"] {
-      border-color: #c96442;
-      box-shadow: 0 0 0 4px rgba(201, 100, 66, 0.16);
-      outline: none;
-    }
-
-    .styled-select-trigger[aria-expanded="true"] svg {
-      transform: rotate(180deg);
-    }
-
-    .styled-select-menu {
-      position: absolute;
-      top: calc(100% + 6px);
-      right: 0;
-      z-index: 12;
-      min-width: 100%;
-      width: max-content;
-      display: grid;
-      gap: 2px;
-      padding: 5px;
-      border: 1px solid #d8d0c4;
-      border-radius: 10px;
-      background: #fffefd;
-      box-shadow: 0 16px 34px rgba(60, 47, 34, 0.16);
-    }
-
-    .styled-select-menu[hidden] {
-      display: none;
-    }
-
-    .styled-select-option {
-      height: 30px;
-      border: 0;
-      border-radius: 7px;
-      color: #4f463d;
-      background: transparent;
-      font-size: 13px;
-      font-weight: 800;
-      text-align: left;
-      padding: 0 10px;
-      cursor: pointer;
-      white-space: nowrap;
-      transition:
-        color var(--motion-fast) var(--ease-out),
-        background-color var(--motion-fast) var(--ease-out);
-    }
-
-    .styled-select-option:hover,
-    .styled-select-option:focus-visible {
-      background: #f1ebe2;
-      outline: none;
-    }
-
-    .styled-select-option[aria-selected="true"] {
-      color: #fffefd;
-      background: #c96442;
     }
 
     .filter-bar {
@@ -597,43 +424,6 @@
       transition: width var(--motion-base) var(--ease-out);
     }
 
-    .table-wrap {
-      overflow-x: auto;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      background: var(--surface-muted);
-    }
-
-    table {
-      width: 100%;
-      min-width: 1380px;
-      border-collapse: separate;
-      border-spacing: 0;
-      table-layout: fixed;
-    }
-
-    th {
-      height: 38px;
-      padding: 0 12px;
-      color: #5f574d;
-      background: #e9e5dc;
-      border-bottom: 1px solid var(--border);
-      text-align: left;
-      font-size: 12px;
-      font-weight: 700;
-      white-space: nowrap;
-    }
-
-    td {
-      padding: 12px;
-      border-bottom: 1px solid var(--border);
-      background: var(--surface);
-      vertical-align: middle;
-    }
-
-    tbody tr:hover td { background: #f4f0e8; }
-    tbody tr:last-child td { border-bottom: 0; }
-
     .name-cell strong {
       display: block;
       color: var(--fg);
@@ -661,6 +451,13 @@
       color: var(--muted);
       font-size: 12px;
       line-height: 1.35;
+    }
+
+    .request-status-cell {
+      width: 86px;
+      min-width: 86px;
+      text-align: center;
+      white-space: nowrap;
     }
 
     .toast {
@@ -717,36 +514,16 @@
       .metric-grid { grid-template-columns: 1fr; }
       .metric-card { min-height: 88px; }
     }
-    .notice {
-      display: none;
-      margin: 0 0 14px;
-      padding: 12px 14px;
-      border: 1px solid rgba(15, 159, 103, 0.26);
-      border-radius: 10px;
-      background: rgba(15, 159, 103, 0.08);
-      color: var(--fg);
-      font-size: 13px;
-      line-height: 1.5;
-    }
-
-    .notice.show { display: block; }
-    .notice.error {
-      border-color: rgba(212, 85, 73, 0.36);
-      background: rgba(212, 85, 73, 0.1);
-      color: #8e2f27;
-    }
   </style>
 </head>
 <body>
   <main class="page" data-od-id="usage-statistics-page">
     <header class="topbar" data-od-id="usage-statistics-header">
       <div class="title" data-od-id="usage-statistics-title-area">
-        <h1 data-od-id="usage-statistics-title">使用统计</h1>
+        <h1 data-od-id="usage-statistics-title">用量统计</h1>
       </div>
       <div class="top-actions" data-od-id="usage-statistics-top-actions"></div>
     </header>
-
-    <div class="notice" id="notice" role="status" aria-live="polite"></div>
 
     <section class="filter-bar" data-od-id="usage-filter-bar">
       <div class="filter-controls" data-od-id="usage-filter-controls">
@@ -835,25 +612,44 @@
         <span class="status-text" id="detailSummary">5 条请求 · 按时间倒序</span>
       </div>
       <div class="panel-body">
-        <div class="table-wrap" data-od-id="usage-detail-table-wrap">
-          <table data-od-id="usage-detail-table">
-            <thead>
-              <tr>
-                <th style="width: 150px;">请求时间</th>
-                <th style="width: 230px;">请求 / API Key</th>
-                <th style="width: 190px;">供应商 / 模型</th>
-                <th style="width: 190px;">请求资源</th>
-                <th style="width: 110px;">输入(净值)</th>
-                <th style="width: 110px;">读取缓存</th>
-                <th style="width: 110px;">输出 Token</th>
-                <th style="width: 110px;">消费</th>
-                <th style="width: 110px;">首字耗时</th>
-                <th style="width: 110px;">完整耗时</th>
-                <th>状态</th>
-              </tr>
-            </thead>
-            <tbody id="usageRows"></tbody>
-          </table>
+        <div class="table-shell ui-table-shell ui-table-shell--clip" data-od-id="usage-detail-table-shell">
+          <div class="table-wrap ui-table-wrap ui-table-wrap--log" data-od-id="usage-detail-table-wrap">
+            <table class="ui-table ui-table--usage-log" data-od-id="usage-detail-table">
+              <thead>
+                <tr>
+                  <th style="width: 150px;">请求时间</th>
+                  <th style="width: 230px;">ApiKey</th>
+                  <th style="width: 190px;">模型</th>
+                  <th style="width: 190px;">请求资源</th>
+                  <th style="width: 110px;">输入 Token</th>
+                  <th style="width: 110px;">读取缓存</th>
+                  <th style="width: 110px;">输出 Token</th>
+                  <th style="width: 110px;">消费</th>
+                  <th style="width: 110px;">首字耗时</th>
+                  <th style="width: 110px;">完整耗时</th>
+                  <th class="request-status-cell">状态</th>
+                </tr>
+              </thead>
+              <tbody id="usageRows"></tbody>
+            </table>
+          </div>
+          <div class="table-pagination ui-table-pagination" data-od-id="usage-detail-pagination">
+            <div class="table-page-actions">
+              <span class="table-page-summary" id="usagePageSummary" data-od-id="usage-page-summary">共0条数据</span>
+              <label class="table-page-size" for="usagePageSize">
+                每页
+                <select class="ui-input" id="usagePageSize" aria-label="请求日志每页显示数量" data-od-id="usage-page-size">
+                  <option value="10">10</option>
+                  <option value="20" selected>20</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                </select>
+              </label>
+              <button class="btn ui-button" id="usagePrevPage" type="button" data-od-id="usage-prev-page">上一页</button>
+              <span class="table-page-indicator" id="usagePageIndicator" data-od-id="usage-page-indicator">第 1 / 1 页</span>
+              <button class="btn ui-button" id="usageNextPage" type="button" data-od-id="usage-next-page">下一页</button>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -876,6 +672,7 @@
     let autoRefreshInterval = 0;
     let autoRefreshRemaining = 0;
     let autoRefreshTimer = null;
+    let usageCurrentPage = 1;
 
     const els = {
       notice: $("notice"),
@@ -898,6 +695,11 @@
       latencySub: $("metricLatencySub"),
       detailSummary: $("detailSummary"),
       rows: $("usageRows"),
+      usagePageSummary: $("usagePageSummary"),
+      usagePageSize: $("usagePageSize"),
+      usagePrevPage: $("usagePrevPage"),
+      usageNextPage: $("usageNextPage"),
+      usagePageIndicator: $("usagePageIndicator"),
       toast: $("toast")
     };
 
@@ -1048,6 +850,10 @@
       return data;
     }
     function setNotice(message) {
+      if (!els.notice) {
+        if (message) showToast(message);
+        return;
+      }
       els.notice.textContent = message || "";
       els.notice.classList.toggle("show", !!message);
     }
@@ -1148,7 +954,17 @@
       els.latency.textContent = formatLatency(averageLatency(rows, "total_latency_ms"));
       if (els.rangeSummary) els.rangeSummary.textContent = `${els.timeRange.options[els.timeRange.selectedIndex].textContent} · ${rows.length} 条请求`;
       els.detailSummary.textContent = `${rows.length} 条请求 · 按时间倒序`;
-      els.rows.innerHTML = rows.length ? rows.map((entry, index) => {
+      const pageSize = Math.max(1, Number(els.usagePageSize?.value) || 20);
+      const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
+      if (usageCurrentPage > totalPages) usageCurrentPage = totalPages;
+      const start = (usageCurrentPage - 1) * pageSize;
+      const pageRows = rows.slice(start, start + pageSize);
+      if (els.usagePageSummary) els.usagePageSummary.textContent = `共${rows.length}条数据`;
+      if (els.usagePageIndicator) els.usagePageIndicator.textContent = `第 ${usageCurrentPage} / ${totalPages} 页`;
+      if (els.usagePrevPage) els.usagePrevPage.disabled = usageCurrentPage <= 1;
+      if (els.usageNextPage) els.usageNextPage.disabled = usageCurrentPage >= totalPages;
+      els.rows.innerHTML = pageRows.length ? pageRows.map((entry, pageIndex) => {
+        const index = start + pageIndex;
         const requestID = entry.request_id || `req_${entry.id || index + 1}`;
         const status = entry.failed ? "失败" : "成功";
         return `
@@ -1243,8 +1059,11 @@
       startAutoRefreshCountdown();
     }
 
-    els.timeRange.addEventListener("change", render);
-    if (els.granularity) els.granularity.addEventListener("change", render);
+    function resetUsagePage() {
+      usageCurrentPage = 1;
+    }
+    els.timeRange.addEventListener("change", () => { resetUsagePage(); render(); });
+    if (els.granularity) els.granularity.addEventListener("change", () => { resetUsagePage(); render(); });
     els.refresh.addEventListener("click", async () => {
       await load();
       if (autoRefreshInterval) startAutoRefreshCountdown();
@@ -1260,6 +1079,25 @@
       if (!option) return;
       setAutoRefreshInterval(Number(option.dataset.interval));
     });
+    if (els.usagePageSize) {
+      els.usagePageSize.addEventListener("change", () => {
+        resetUsagePage();
+        render();
+      });
+    }
+    if (els.usagePrevPage) {
+      els.usagePrevPage.addEventListener("click", () => {
+        if (usageCurrentPage <= 1) return;
+        usageCurrentPage -= 1;
+        render();
+      });
+    }
+    if (els.usageNextPage) {
+      els.usageNextPage.addEventListener("click", () => {
+        usageCurrentPage += 1;
+        render();
+      });
+    }
     document.addEventListener("click", event => {
       if (!event.target.closest(".styled-select")) closeStyledSelects();
       if (els.autoRefreshMenu.hidden) return;

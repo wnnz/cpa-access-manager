@@ -95,11 +95,7 @@ func (a *App) hostProviderInventory(ctx context.Context, req ManagementRequest) 
 }
 
 func (a *App) getManagementJSON(ctx context.Context, req ManagementRequest, token, path string, dst any) error {
-	base := strings.TrimRight(os.Getenv("CPA_ACCESS_MANAGER_CPA_BASE"), "/")
-	if base == "" {
-		base = defaultCPAAPIBase
-	}
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, base+path, nil)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, cpaAPIBase()+path, nil)
 	if err != nil {
 		return err
 	}
@@ -118,6 +114,14 @@ func (a *App) getManagementJSON(ctx context.Context, req ManagementRequest, toke
 		return fmt.Errorf("management %s returned %d", path, resp.StatusCode)
 	}
 	return json.NewDecoder(resp.Body).Decode(dst)
+}
+
+func cpaAPIBase() string {
+	base := strings.TrimRight(os.Getenv("CPA_ACCESS_MANAGER_CPA_BASE"), "/")
+	if base == "" {
+		base = defaultCPAAPIBase
+	}
+	return base
 }
 
 func apiKeyEntryInventoryItem(provider, kind string, entry apiKeyConfigEntry) (access.InventoryItem, bool) {

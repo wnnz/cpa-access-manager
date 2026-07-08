@@ -173,6 +173,10 @@ func (a *App) managementRegistration() ManagementRegistrationResponse {
 				Menu:        "设置",
 				Description: "配置管理密钥和模型计费规则。",
 			},
+			{
+				Path:        resourceSharedUI,
+				Description: "Shared stylesheet for plugin resource pages.",
+			},
 		},
 	}
 }

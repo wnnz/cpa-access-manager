@@ -43,10 +43,11 @@ type pricesRequest struct {
 }
 
 type statusResponse struct {
-	ID      string `json:"id"`
-	Version string `json:"version"`
-	Enabled bool   `json:"enabled"`
-	DBPath  string `json:"db_path"`
+	ID                string `json:"id"`
+	Version           string `json:"version"`
+	CurrentCPAVersion string `json:"current_cpa_version,omitempty"`
+	Enabled           bool   `json:"enabled"`
+	DBPath            string `json:"db_path"`
 }
 
 type hostAuthListResponse struct {
@@ -66,6 +67,16 @@ func (a *App) handleManagement(raw []byte) ([]byte, error) {
 				"cache-control": []string{"no-store"},
 			},
 			Body: []byte(web.APIKeyHTML),
+		})
+	}
+	if isSharedUIResource(req.Path) {
+		return OKEnvelope(ManagementResponse{
+			StatusCode: http.StatusOK,
+			Headers: http.Header{
+				"content-type":  []string{"text/css; charset=utf-8"},
+				"cache-control": []string{"no-store"},
+			},
+			Body: []byte(web.SharedUICSS),
 		})
 	}
 	if isSettingsResource(req.Path) {
@@ -95,7 +106,13 @@ func (a *App) handleManagement(raw []byte) ([]byte, error) {
 	path := normalizedPluginPath(req.Path)
 	switch path {
 	case routeStatus:
-		return OKEnvelope(jsonManagement(http.StatusOK, statusResponse{ID: PluginID, Version: Version, Enabled: cfg.Enabled, DBPath: cfg.DBPath}))
+		return OKEnvelope(jsonManagement(http.StatusOK, statusResponse{
+			ID:                PluginID,
+			Version:           Version,
+			CurrentCPAVersion: a.currentCPAVersion(context.Background(), req),
+			Enabled:           cfg.Enabled,
+			DBPath:            cfg.DBPath,
+		}))
 	case routeKeys:
 		return OKEnvelope(a.handleKeys(store, req))
 	case routeRotateKey:
@@ -108,13 +125,49 @@ func (a *App) handleManagement(raw []byte) ([]byte, error) {
 		return OKEnvelope(a.handlePrices(store, req))
 	case routePricesSync:
 		return OKEnvelope(a.handlePriceSync(store, req))
-		case routeUsage:
-			return OKEnvelope(a.handleUsageAPI(store, req))
-		case routeCPAUpdate:
-			return OKEnvelope(a.handleCPAUpdate(req, cfg))
-		default:
-			return OKEnvelope(jsonManagement(http.StatusNotFound, map[string]any{"error": "route not found"}))
+	case routeUsage:
+		return OKEnvelope(a.handleUsageAPI(store, req))
+	case routeCPAUpdate:
+		return OKEnvelope(a.handleCPAUpdate(req, cfg))
+	default:
+		return OKEnvelope(jsonManagement(http.StatusNotFound, map[string]any{"error": "route not found"}))
+	}
+}
+
+func (a *App) currentCPAVersion(ctx context.Context, req ManagementRequest) string {
+	token := bearerToken(req.Headers)
+	if token == "" {
+		return ""
+	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, cpaAPIBase()+"/v0/management/status", nil)
+	if err != nil {
+		return ""
+	}
+	httpReq.Header.Set("authorization", "Bearer "+token)
+	httpReq.Header.Set("accept", "application/json")
+	if userAgent := strings.TrimSpace(req.Headers.Get("user-agent")); userAgent != "" {
+		httpReq.Header.Set("user-agent", userAgent)
+	}
+	resp, err := (&http.Client{Timeout: 5 * time.Second}).Do(httpReq)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return ""
+	}
+	return firstNonEmptyHeader(resp.Header, "X-Cpa-Version", "X-CPA-Version", "X-Server-Version", "X-SERVER-Version")
+}
+
+func firstNonEmptyHeader(headers http.Header, names ...string) string {
+	for _, name := range names {
+		if value := strings.TrimSpace(headers.Get(name)); value != "" {
+			return value
 		}
+	}
+	return ""
 }
 
 func (a *App) handleKeys(store *access.Store, req ManagementRequest) ManagementResponse {
@@ -503,6 +556,11 @@ func isSettingsResource(path string) bool {
 func isUsageResource(path string) bool {
 	path = strings.TrimSpace(path)
 	return hasResourceSuffix(path, resourceUsage, legacyResourceUsage)
+}
+
+func isSharedUIResource(path string) bool {
+	path = strings.TrimSpace(path)
+	return hasResourceSuffix(path, resourceSharedUI)
 }
 
 func hasResourceSuffix(path string, suffixes ...string) bool {

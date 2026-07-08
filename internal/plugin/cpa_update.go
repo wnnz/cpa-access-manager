@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -13,6 +14,7 @@ import (
 
 const (
 	defaultCPAUpdateService = "cli-proxy-api"
+	defaultCPAUpdaterImage  = "docker:29-cli"
 )
 
 var (
@@ -71,7 +73,7 @@ func scheduleCPAUpdate(cfg Config, body cpaUpdateRequest) (cpaUpdateResponse, er
 			return cpaUpdateResponse{}, err
 		}
 		workDir = composeDir
-		command = fmt.Sprintf("docker compose pull %s && docker compose up -d %s", shellQuote(service), shellQuote(service))
+		command = dockerUpdaterCommand(composeDir, service, logPath)
 	}
 	if err := cpaUpdateRunShell(workDir, logPath, command); err != nil {
 		return cpaUpdateResponse{}, err
@@ -89,6 +91,34 @@ func scheduleCPAUpdate(cfg Config, body cpaUpdateRequest) (cpaUpdateResponse, er
 		Service:       service,
 		LatestVersion: target,
 	}, nil
+}
+
+func dockerUpdaterCommand(composeDir, service, logPath string) string {
+	composeDir = path.Clean(filepath.ToSlash(strings.TrimSpace(composeDir)))
+	image := strings.TrimSpace(envValue("CPA_TOOLKIT_DOCKER_UPDATER_IMAGE"))
+	if image == "" {
+		image = defaultCPAUpdaterImage
+	}
+	name := fmt.Sprintf("cpa-toolkit-updater-%d", cpaUpdateNow().Unix())
+	logDir := path.Dir(logPath)
+	hostLogDir := hostPathForDockerComposeDir(composeDir, logDir)
+	inner := fmt.Sprintf(
+		"docker compose pull %s >> %s 2>&1 && docker compose up -d --remove-orphans %s >> %s 2>&1",
+		shellQuote(service),
+		shellQuote(logPath),
+		shellQuote(service),
+		shellQuote(logPath),
+	)
+	return strings.Join([]string{
+		"docker run -d --rm",
+		"--name " + shellQuote(name),
+		"-v /var/run/docker.sock:/var/run/docker.sock",
+		"-v " + shellQuote(composeDir+":"+composeDir+":ro"),
+		"-v " + shellQuote(hostLogDir+":"+logDir),
+		"-w " + shellQuote(composeDir),
+		shellQuote(image),
+		"sh -lc " + shellQuote(inner),
+	}, " ")
 }
 
 func isDockerDBPath(dbPath string) bool {
@@ -131,12 +161,20 @@ func hasComposeFile(dir string) bool {
 	return false
 }
 
+func hostPathForDockerComposeDir(composeDir, containerPath string) string {
+	containerPath = path.Clean(strings.TrimSpace(containerPath))
+	if strings.HasPrefix(containerPath, "/CLIProxyAPI/") {
+		return path.Join(path.Clean(composeDir), strings.TrimPrefix(containerPath, "/CLIProxyAPI/"))
+	}
+	return containerPath
+}
+
 func updateLogPath(dbPath string) string {
-	base := filepath.Dir(strings.TrimSpace(dbPath))
+	base := path.Dir(strings.TrimSpace(dbPath))
 	if base == "." || base == "" {
 		base = os.TempDir()
 	}
-	return filepath.Join(base, "cpa-toolkit-cpa-update.log")
+	return path.Join(base, "cpa-toolkit-cpa-update.log")
 }
 
 func envValue(name string) string {

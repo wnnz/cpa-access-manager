@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="zh-CN">
-<head>
+<html lang="zh-CN"><head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>管理设置</title>
+  <link rel="stylesheet" href="shared-ui.css">
   <style>
     :root {
       --bg: #f7f5f1;
@@ -16,6 +16,8 @@
       --primary: #12b981;
       --primary-hover: #079467;
       --primary-soft: #e5f8f0;
+      --btn-primary: #c96442;
+      --btn-primary-hover: #b35739;
       --danger: #d45549;
       --radius: 10px;
       --shadow: 0 14px 34px rgba(37, 31, 22, 0.08);
@@ -38,17 +40,6 @@
       color: var(--fg);
       font-family: var(--font);
       font-size: 14px;
-    }
-
-    button,
-    input,
-    select {
-      font: inherit;
-    }
-
-    button {
-      border: 0;
-      cursor: pointer;
     }
 
     .page {
@@ -89,57 +80,6 @@
       justify-content: flex-end;
       gap: 8px;
       flex-wrap: wrap;
-    }
-
-    .btn {
-      height: 36px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      padding: 0 13px;
-      border-radius: 8px;
-      border: 1px solid var(--border-strong);
-      background: #ebe8e2;
-      color: var(--fg);
-      text-decoration: none;
-      font-weight: 700;
-      white-space: nowrap;
-      transition:
-        color var(--motion-fast) var(--ease-out),
-        background-color var(--motion-fast) var(--ease-out),
-        border-color var(--motion-fast) var(--ease-out),
-        transform var(--motion-fast) var(--ease-out);
-    }
-
-    .btn:hover {
-      border-color: #cfc7bc;
-      color: var(--fg);
-      background: #e2ded6;
-      transform: translateY(-1px);
-    }
-
-    .btn:active {
-      transform: translateY(0);
-    }
-
-    .btn.primary {
-      color: #fff;
-      border-color: #c96442;
-      background: #c96442;
-    }
-
-    .btn.primary:hover {
-      color: #fff;
-      border-color: #b35739;
-      background: #b35739;
-    }
-
-    .btn svg,
-    .icon-btn svg {
-      width: 16px;
-      height: 16px;
-      stroke-width: 2;
     }
 
     .settings-shell {
@@ -213,22 +153,6 @@
 
     input {
       width: 100%;
-      height: 36px;
-      border: 1px solid var(--border-strong);
-      border-radius: 8px;
-      background: var(--surface);
-      color: var(--fg);
-      outline: none;
-      padding: 0 10px;
-      transition:
-        border-color var(--motion-fast) var(--ease-out),
-        box-shadow var(--motion-fast) var(--ease-out);
-    }
-
-    input:focus,
-    select:focus {
-      border-color: #c96442;
-      box-shadow: 0 0 0 4px rgba(201, 100, 66, 0.16);
     }
 
     .settings-helper {
@@ -298,58 +222,8 @@
       transform: translate3d(0, 0, 0);
     }
 
-    .pricing-table-wrap {
-      max-height: 338px;
-      overflow: auto;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      background: var(--surface-muted);
-    }
-
-    .pricing-table {
-      width: 100%;
-      min-width: 860px;
-      border-collapse: separate;
-      border-spacing: 0;
-      table-layout: fixed;
-    }
-
-    .pricing-table tbody tr {
-      background: var(--surface);
-      transition: background-color var(--motion-fast) var(--ease-out);
-    }
-
     .pricing-table tbody tr.synced {
       background: #edf8f1;
-    }
-
-    .pricing-table tbody tr:hover {
-      background: #f4f0e8;
-    }
-
-    .pricing-table th {
-      position: sticky;
-      top: 0;
-      z-index: 2;
-      height: 38px;
-      padding: 0 12px;
-      color: #5f574d;
-      background: #e9e5dc;
-      border-bottom: 1px solid var(--border);
-      text-align: left;
-      font-size: 12px;
-      font-weight: 700;
-      white-space: nowrap;
-    }
-
-    .pricing-table td {
-      padding: 10px 12px;
-      border-bottom: 1px solid var(--border);
-      vertical-align: middle;
-    }
-
-    .pricing-table tbody tr:last-child td {
-      border-bottom: 0;
     }
 
     .pricing-control-bar {
@@ -359,8 +233,9 @@
       justify-content: space-between;
       gap: 12px;
       padding: 12px 14px;
-      border: 1px solid var(--border);
-      border-radius: 10px;
+      border: 0;
+      border-bottom: 1px solid var(--border);
+      border-radius: 10px 10px 0 0;
       background: var(--surface);
     }
 
@@ -385,139 +260,6 @@
       padding-left: 34px;
     }
 
-    .pricing-controls {
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .pricing-count,
-    .pricing-page-summary,
-    .pricing-page-indicator {
-      color: #5f574d;
-      font-size: 13px;
-      font-weight: 700;
-      white-space: nowrap;
-    }
-
-    .pricing-page-size {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      color: #5f574d;
-      font-size: 13px;
-      font-weight: 700;
-      white-space: nowrap;
-    }
-
-    .page-size-select {
-      position: relative;
-      display: inline-flex;
-    }
-
-    .page-size-select select {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .page-size-trigger {
-      width: 76px;
-      height: 36px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      padding: 0 10px 0 12px;
-      border: 1px solid var(--border-strong);
-      border-radius: 8px;
-      color: var(--fg);
-      background: var(--surface);
-      box-shadow: none;
-      font-size: 13px;
-      font-weight: 800;
-      cursor: pointer;
-      transition:
-        border-color var(--motion-fast) var(--ease-out),
-        box-shadow var(--motion-fast) var(--ease-out),
-        background-color var(--motion-fast) var(--ease-out);
-    }
-
-    .page-size-trigger svg {
-      width: 14px;
-      height: 14px;
-      color: #5f574d;
-      transition: transform var(--motion-fast) var(--ease-out);
-    }
-
-    .page-size-trigger:hover,
-    .page-size-trigger:focus-visible,
-    .page-size-trigger[aria-expanded="true"] {
-      border-color: #c96442;
-      box-shadow: 0 0 0 4px rgba(201, 100, 66, 0.16);
-      outline: none;
-    }
-
-    .page-size-trigger[aria-expanded="true"] svg {
-      transform: rotate(180deg);
-    }
-
-    .page-size-menu {
-      position: absolute;
-      top: calc(100% + 6px);
-      right: 0;
-      z-index: 12;
-      width: 88px;
-      display: grid;
-      gap: 2px;
-      padding: 5px;
-      border: 1px solid #d8d0c4;
-      border-radius: 10px;
-      background: #fffefd;
-      box-shadow: 0 16px 34px rgba(60, 47, 34, 0.16);
-    }
-
-    .page-size-menu[hidden] {
-      display: none;
-    }
-
-    .page-size-option {
-      height: 30px;
-      border: 0;
-      border-radius: 7px;
-      color: #4f463d;
-      background: transparent;
-      font-size: 13px;
-      font-weight: 800;
-      text-align: left;
-      padding: 0 10px;
-      cursor: pointer;
-      transition:
-        color var(--motion-fast) var(--ease-out),
-        background-color var(--motion-fast) var(--ease-out);
-    }
-
-    .page-size-option:hover,
-    .page-size-option:focus-visible {
-      background: #f1ebe2;
-      outline: none;
-    }
-
-    .page-size-option[aria-selected="true"] {
-      color: #fffefd;
-      background: #c96442;
-    }
-
-    .btn[disabled] {
-      cursor: not-allowed;
-      opacity: 0.52;
-      transform: none;
-    }
-
     .pricing-provider-cell {
       width: 128px;
     }
@@ -537,49 +279,10 @@
       justify-content: flex-end;
     }
 
-    .icon-btn {
-      width: 34px;
-      height: 34px;
-      display: grid;
-      place-items: center;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      color: #5f574d;
-      background: #f8f6f1;
-      transition:
-        color var(--motion-fast) var(--ease-out),
-        background-color var(--motion-fast) var(--ease-out),
-        border-color var(--motion-fast) var(--ease-out),
-        transform var(--motion-fast) var(--ease-out);
-    }
-
-    .icon-btn:hover {
-      color: var(--fg);
-      background: #eee9e1;
-      transform: translateY(-1px);
-    }
-
-    .icon-btn.danger {
-      color: #b8573f;
-    }
-
-    .icon-btn.danger.confirming,
-    .icon-btn.danger:hover {
-      color: #fff;
-      border-color: #c96442;
-      background: #c96442;
-    }
-
-    .icon-btn:active {
-      transform: translateY(0);
-    }
-
     .provider-input,
     .model-name-input,
     .price-input {
       width: 100%;
-      height: 34px;
-      padding: 0 10px;
     }
 
     .provider-input {
@@ -776,14 +479,14 @@
           </div>
           <button class="btn primary" id="saveManagementKey" type="button" data-od-id="save-management-key-button">保存密钥</button>
         </div>
-        <div class="panel-body management-body">
+        <div class="panel-body management-body" style="padding-bottom: 20px;">
           <div class="field">
             <label for="managementKeyInput">管理密钥</label>
             <div class="secret-input-wrap" data-od-id="management-key-input-wrap">
               <input id="managementKeyInput" type="password" autocomplete="off" placeholder="输入管理密钥" data-od-id="management-key-input">
               <button class="plain-toggle" id="toggleManagementKeyPlain" type="button" aria-pressed="false" aria-label="显示管理密钥明文" data-od-id="management-key-plain-toggle"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"></path><circle cx="12" cy="12" r="2.8"></circle></svg></button>
             </div>
-            <p class="settings-helper">保存后不会在界面明文显示。</p>
+            
             <div id="managementKeyError" class="error" role="alert" aria-hidden="true">请输入管理密钥。</div>
           </div>
         </div>
@@ -796,95 +499,99 @@
             <p>价格单位为 USD / 1M tokens，可按模型独立维护。</p>
           </div>
           <div class="panel-actions" data-od-id="model-pricing-actions">
-            <button class="btn" id="addPricingRule" type="button" data-od-id="add-pricing-rule-button">新增规则</button>
-            <button class="btn" id="syncModelPrices" type="button" data-od-id="sync-model-prices-button">
+            <button class="btn ui-button" id="addPricingRule" type="button" data-od-id="add-pricing-rule-button">新增规则</button>
+            <button class="btn ui-button" id="syncModelPrices" type="button" data-od-id="sync-model-prices-button">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path><path d="M3 21v-5h5"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M21 3v5h-5"></path></svg>
               同步价格
             </button>
-            <button class="btn primary" id="savePricing" type="button" data-od-id="save-pricing-button">保存价格</button>
+            <button class="btn ui-button primary ui-button--primary" id="savePricing" type="button" data-od-id="save-pricing-button">保存价格</button>
           </div>
         </div>
         <div class="panel-body">
-          <div class="pricing-control-bar" data-od-id="model-pricing-control-bar">
-            <div class="pricing-search" data-od-id="model-pricing-search">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.2-3.2"></path></svg>
-              <input id="pricingSearchInput" type="search" placeholder="搜索提供商或模型" aria-label="搜索模型价格规则" data-od-id="model-pricing-search-input">
-            </div>
-            <div class="pricing-controls" data-od-id="model-pricing-pagination">
-              <span class="pricing-count" id="pricingRuleCount" data-od-id="model-pricing-rule-count">0 条价格规则</span>
-              <div class="pricing-page-size" data-od-id="model-pricing-page-size-shell">
-                <span id="pricingPageSizeLabel">每页</span>
-                <span class="page-size-select" data-od-id="model-pricing-page-size-control">
-                  <select id="pricingPageSize" aria-labelledby="pricingPageSizeLabel" tabindex="-1" data-od-id="model-pricing-page-size">
-                  <option value="5">5</option>
-                  <option value="10">10</option>
-                  <option value="20">20</option>
-                  <option value="50" selected>50</option>
-                  </select>
-                  <button class="page-size-trigger" id="pricingPageSizeTrigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="pricingPageSizeMenu" aria-labelledby="pricingPageSizeLabel pricingPageSizeValue" data-od-id="model-pricing-page-size-trigger">
-                    <span id="pricingPageSizeValue">50</span>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"></path></svg>
-                  </button>
-                  <div class="page-size-menu" id="pricingPageSizeMenu" role="listbox" aria-label="每页显示数量" hidden data-od-id="model-pricing-page-size-menu">
-                    <button class="page-size-option" type="button" role="option" data-value="5" aria-selected="false">5</button>
-                    <button class="page-size-option" type="button" role="option" data-value="10" aria-selected="false">10</button>
-                    <button class="page-size-option" type="button" role="option" data-value="20" aria-selected="false">20</button>
-                    <button class="page-size-option" type="button" role="option" data-value="50" aria-selected="true">50</button>
-                  </div>
-                </span>
+          <div class="pricing-table-shell ui-table-shell ui-table-shell--clip ui-table-shell--with-toolbar" data-od-id="model-pricing-table-shell">
+            <div class="pricing-control-bar" data-od-id="model-pricing-control-bar">
+              <div class="pricing-search" data-od-id="model-pricing-search">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.2-3.2"></path></svg>
+                <input class="ui-input" id="pricingSearchInput" type="search" placeholder="搜索提供商或模型" aria-label="搜索模型价格规则" data-od-id="model-pricing-search-input">
               </div>
-              <button class="btn" id="pricingPrevPage" type="button" data-od-id="model-pricing-prev-page">上一页</button>
-              <span class="pricing-page-indicator" id="pricingPageIndicator" data-od-id="model-pricing-page-indicator">第 1 / 1 页</span>
-              <button class="btn" id="pricingNextPage" type="button" data-od-id="model-pricing-next-page">下一页</button>
             </div>
-          </div>
-          <div class="pricing-table-wrap" data-od-id="model-pricing-table-wrap">
-            <table class="pricing-table" data-od-id="model-pricing-table">
-              <thead>
-                <tr>
-                  <th class="pricing-provider-cell">提供商</th>
-                  <th class="pricing-model-cell">模型名称</th>
-                  <th>输入价格</th>
-                  <th>读取缓存价格</th>
-                  <th>输出价格</th>
-                  <th class="pricing-actions-cell">操作</th>
-                </tr>
-              </thead>
-              <tbody id="pricingTableBody">
-                <tr data-od-id="model-price-row-gpt-41">
-                  <td class="pricing-provider-cell"><input class="provider-input" type="text" value="OpenAI" aria-label="gpt-4.1 提供商" data-od-id="provider-gpt-41"></td>
-                  <td class="pricing-model-cell"><input class="model-name-input" type="text" value="gpt-4.1" aria-label="模型名称 gpt-4.1" data-od-id="model-name-gpt-41"></td>
-                  <td><input class="price-input" type="number" min="0" step="0.01" value="2.00" data-sync-value="2.00" aria-label="gpt-4.1 输入价格" data-od-id="price-gpt-41-input"></td>
-                  <td><input class="price-input" type="number" min="0" step="0.01" value="0.50" data-sync-value="0.50" aria-label="gpt-4.1 读取缓存价格" data-od-id="price-gpt-41-cache-read"></td>
-                  <td><input class="price-input" type="number" min="0" step="0.01" value="8.00" data-sync-value="8.00" aria-label="gpt-4.1 输出价格" data-od-id="price-gpt-41-output"></td>
-                  <td class="pricing-actions-cell"><div class="price-row-actions"><button class="icon-btn danger" title="删除" aria-label="删除 gpt-4.1" data-action="delete-price-row" data-od-id="delete-price-gpt-41"></button></div></td>
-                </tr>
-                <tr data-od-id="model-price-row-gpt-41-mini">
-                  <td class="pricing-provider-cell"><input class="provider-input" type="text" value="OpenAI" aria-label="gpt-4.1-mini 提供商" data-od-id="provider-gpt-41-mini"></td>
-                  <td class="pricing-model-cell"><input class="model-name-input" type="text" value="gpt-4.1-mini" aria-label="模型名称 gpt-4.1-mini" data-od-id="model-name-gpt-41-mini"></td>
-                  <td><input class="price-input" type="number" min="0" step="0.01" value="0.40" data-sync-value="0.40" aria-label="gpt-4.1-mini 输入价格" data-od-id="price-gpt-41-mini-input"></td>
-                  <td><input class="price-input" type="number" min="0" step="0.01" value="0.10" data-sync-value="0.10" aria-label="gpt-4.1-mini 读取缓存价格" data-od-id="price-gpt-41-mini-cache-read"></td>
-                  <td><input class="price-input" type="number" min="0" step="0.01" value="1.60" data-sync-value="1.60" aria-label="gpt-4.1-mini 输出价格" data-od-id="price-gpt-41-mini-output"></td>
-                  <td class="pricing-actions-cell"><div class="price-row-actions"><button class="icon-btn danger" title="删除" aria-label="删除 gpt-4.1-mini" data-action="delete-price-row" data-od-id="delete-price-gpt-41-mini"></button></div></td>
-                </tr>
-                <tr data-od-id="model-price-row-claude-37-sonnet">
-                  <td class="pricing-provider-cell"><input class="provider-input" type="text" value="Anthropic" aria-label="claude-3.7-sonnet 提供商" data-od-id="provider-claude-37-sonnet"></td>
-                  <td class="pricing-model-cell"><input class="model-name-input" type="text" value="claude-3.7-sonnet" aria-label="模型名称 claude-3.7-sonnet" data-od-id="model-name-claude-37-sonnet"></td>
-                  <td><input class="price-input" type="number" min="0" step="0.01" value="3.00" data-sync-value="3.00" aria-label="claude-3.7-sonnet 输入价格" data-od-id="price-claude-37-sonnet-input"></td>
-                  <td><input class="price-input" type="number" min="0" step="0.01" value="0.30" data-sync-value="0.30" aria-label="claude-3.7-sonnet 读取缓存价格" data-od-id="price-claude-37-sonnet-cache-read"></td>
-                  <td><input class="price-input" type="number" min="0" step="0.01" value="15.00" data-sync-value="15.00" aria-label="claude-3.7-sonnet 输出价格" data-od-id="price-claude-37-sonnet-output"></td>
-                  <td class="pricing-actions-cell"><div class="price-row-actions"><button class="icon-btn danger" title="删除" aria-label="删除 claude-3.7-sonnet" data-action="delete-price-row" data-od-id="delete-price-claude-37-sonnet"></button></div></td>
-                </tr>
-                <tr data-od-id="model-price-row-gemini-25-pro">
-                  <td class="pricing-provider-cell"><input class="provider-input" type="text" value="Google" aria-label="gemini-2.5-pro 提供商" data-od-id="provider-gemini-25-pro"></td>
-                  <td class="pricing-model-cell"><input class="model-name-input" type="text" value="gemini-2.5-pro" aria-label="模型名称 gemini-2.5-pro" data-od-id="model-name-gemini-25-pro"></td>
-                  <td><input class="price-input" type="number" min="0" step="0.01" value="1.25" data-sync-value="1.25" aria-label="gemini-2.5-pro 输入价格" data-od-id="price-gemini-25-pro-input"></td>
-                  <td><input class="price-input" type="number" min="0" step="0.01" value="0.31" data-sync-value="0.31" aria-label="gemini-2.5-pro 读取缓存价格" data-od-id="price-gemini-25-pro-cache-read"></td>
-                  <td><input class="price-input" type="number" min="0" step="0.01" value="10.00" data-sync-value="10.00" aria-label="gemini-2.5-pro 输出价格" data-od-id="price-gemini-25-pro-output"></td>
-                  <td class="pricing-actions-cell"><div class="price-row-actions"><button class="icon-btn danger" title="删除" aria-label="删除 gemini-2.5-pro" data-action="delete-price-row" data-od-id="delete-price-gemini-25-pro"></button></div></td>
-                </tr>
-              </tbody>
-            </table>
+            <div class="pricing-table-wrap ui-table-wrap ui-table-wrap--pricing" data-od-id="model-pricing-table-wrap">
+              <table class="pricing-table ui-table ui-table--pricing" data-od-id="model-pricing-table">
+                <thead>
+                  <tr>
+                    <th class="pricing-provider-cell">提供商</th>
+                    <th class="pricing-model-cell">模型名称</th>
+                    <th>输入价格</th>
+                    <th>读取缓存价格</th>
+                    <th>输出价格</th>
+                    <th class="pricing-actions-cell">操作</th>
+                  </tr>
+                </thead>
+                <tbody id="pricingTableBody">
+                  <tr data-od-id="model-price-row-gpt-41">
+                    <td class="pricing-provider-cell"><input class="provider-input ui-input" type="text" value="OpenAI" aria-label="gpt-4.1 提供商" data-od-id="provider-gpt-41"></td>
+                    <td class="pricing-model-cell"><input class="model-name-input ui-input" type="text" value="gpt-4.1" aria-label="模型名称 gpt-4.1" data-od-id="model-name-gpt-41"></td>
+                    <td><input class="price-input ui-input" type="number" min="0" step="0.01" value="2.00" data-sync-value="2.00" aria-label="gpt-4.1 输入价格" data-od-id="price-gpt-41-input"></td>
+                    <td><input class="price-input ui-input" type="number" min="0" step="0.01" value="0.50" data-sync-value="0.50" aria-label="gpt-4.1 读取缓存价格" data-od-id="price-gpt-41-cache-read"></td>
+                    <td><input class="price-input ui-input" type="number" min="0" step="0.01" value="8.00" data-sync-value="8.00" aria-label="gpt-4.1 输出价格" data-od-id="price-gpt-41-output"></td>
+                    <td class="pricing-actions-cell"><div class="price-row-actions"><button class="icon-btn ui-icon-button danger ui-icon-button--danger" title="删除" aria-label="删除 gpt-4.1" data-action="delete-price-row" data-od-id="delete-price-gpt-41"></button></div></td>
+                  </tr>
+                  <tr data-od-id="model-price-row-gpt-41-mini">
+                    <td class="pricing-provider-cell"><input class="provider-input ui-input" type="text" value="OpenAI" aria-label="gpt-4.1-mini 提供商" data-od-id="provider-gpt-41-mini"></td>
+                    <td class="pricing-model-cell"><input class="model-name-input ui-input" type="text" value="gpt-4.1-mini" aria-label="模型名称 gpt-4.1-mini" data-od-id="model-name-gpt-41-mini"></td>
+                    <td><input class="price-input ui-input" type="number" min="0" step="0.01" value="0.40" data-sync-value="0.40" aria-label="gpt-4.1-mini 输入价格" data-od-id="price-gpt-41-mini-input"></td>
+                    <td><input class="price-input ui-input" type="number" min="0" step="0.01" value="0.10" data-sync-value="0.10" aria-label="gpt-4.1-mini 读取缓存价格" data-od-id="price-gpt-41-mini-cache-read"></td>
+                    <td><input class="price-input ui-input" type="number" min="0" step="0.01" value="1.60" data-sync-value="1.60" aria-label="gpt-4.1-mini 输出价格" data-od-id="price-gpt-41-mini-output"></td>
+                    <td class="pricing-actions-cell"><div class="price-row-actions"><button class="icon-btn ui-icon-button danger ui-icon-button--danger" title="删除" aria-label="删除 gpt-4.1-mini" data-action="delete-price-row" data-od-id="delete-price-gpt-41-mini"></button></div></td>
+                  </tr>
+                  <tr data-od-id="model-price-row-claude-37-sonnet">
+                    <td class="pricing-provider-cell"><input class="provider-input ui-input" type="text" value="Anthropic" aria-label="claude-3.7-sonnet 提供商" data-od-id="provider-claude-37-sonnet"></td>
+                    <td class="pricing-model-cell"><input class="model-name-input ui-input" type="text" value="claude-3.7-sonnet" aria-label="模型名称 claude-3.7-sonnet" data-od-id="model-name-claude-37-sonnet"></td>
+                    <td><input class="price-input ui-input" type="number" min="0" step="0.01" value="3.00" data-sync-value="3.00" aria-label="claude-3.7-sonnet 输入价格" data-od-id="price-claude-37-sonnet-input"></td>
+                    <td><input class="price-input ui-input" type="number" min="0" step="0.01" value="0.30" data-sync-value="0.30" aria-label="claude-3.7-sonnet 读取缓存价格" data-od-id="price-claude-37-sonnet-cache-read"></td>
+                    <td><input class="price-input ui-input" type="number" min="0" step="0.01" value="15.00" data-sync-value="15.00" aria-label="claude-3.7-sonnet 输出价格" data-od-id="price-claude-37-sonnet-output"></td>
+                    <td class="pricing-actions-cell"><div class="price-row-actions"><button class="icon-btn ui-icon-button danger ui-icon-button--danger" title="删除" aria-label="删除 claude-3.7-sonnet" data-action="delete-price-row" data-od-id="delete-price-claude-37-sonnet"></button></div></td>
+                  </tr>
+                  <tr data-od-id="model-price-row-gemini-25-pro">
+                    <td class="pricing-provider-cell"><input class="provider-input ui-input" type="text" value="Google" aria-label="gemini-2.5-pro 提供商" data-od-id="provider-gemini-25-pro"></td>
+                    <td class="pricing-model-cell"><input class="model-name-input ui-input" type="text" value="gemini-2.5-pro" aria-label="模型名称 gemini-2.5-pro" data-od-id="model-name-gemini-25-pro"></td>
+                    <td><input class="price-input ui-input" type="number" min="0" step="0.01" value="1.25" data-sync-value="1.25" aria-label="gemini-2.5-pro 输入价格" data-od-id="price-gemini-25-pro-input"></td>
+                    <td><input class="price-input ui-input" type="number" min="0" step="0.01" value="0.31" data-sync-value="0.31" aria-label="gemini-2.5-pro 读取缓存价格" data-od-id="price-gemini-25-pro-cache-read"></td>
+                    <td><input class="price-input ui-input" type="number" min="0" step="0.01" value="10.00" data-sync-value="10.00" aria-label="gemini-2.5-pro 输出价格" data-od-id="price-gemini-25-pro-output"></td>
+                    <td class="pricing-actions-cell"><div class="price-row-actions"><button class="icon-btn ui-icon-button danger ui-icon-button--danger" title="删除" aria-label="删除 gemini-2.5-pro" data-action="delete-price-row" data-od-id="delete-price-gemini-25-pro"></button></div></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="pricing-pagination-footer ui-table-pagination" data-od-id="model-pricing-pagination">
+              <div class="pricing-controls">
+                <span class="pricing-count" id="pricingRuleCount" data-od-id="model-pricing-rule-count">共0条数据</span>
+                <div class="pricing-page-size" data-od-id="model-pricing-page-size-shell">
+                  <span id="pricingPageSizeLabel">每页</span>
+                  <span class="page-size-select ui-select" data-od-id="model-pricing-page-size-control">
+                    <select id="pricingPageSize" aria-labelledby="pricingPageSizeLabel" tabindex="-1" data-od-id="model-pricing-page-size">
+                    <option value="10">10</option>
+                    <option value="20" selected="">20</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                    </select>
+                    <button class="page-size-trigger ui-select__trigger" id="pricingPageSizeTrigger" type="button" aria-haspopup="listbox" aria-expanded="false" aria-controls="pricingPageSizeMenu" aria-labelledby="pricingPageSizeLabel pricingPageSizeValue" data-od-id="model-pricing-page-size-trigger">
+                      <span id="pricingPageSizeValue">20</span>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"></path></svg>
+                    </button>
+                    <div class="page-size-menu ui-select__menu" id="pricingPageSizeMenu" role="listbox" aria-label="每页显示数量" hidden="" data-od-id="model-pricing-page-size-menu">
+                      <button class="page-size-option ui-select__option" type="button" role="option" data-value="10" aria-selected="false">10</button>
+                      <button class="page-size-option ui-select__option" type="button" role="option" data-value="20" aria-selected="true">20</button>
+                      <button class="page-size-option ui-select__option" type="button" role="option" data-value="50" aria-selected="false">50</button>
+                      <button class="page-size-option ui-select__option" type="button" role="option" data-value="100" aria-selected="false">100</button>
+                    </div>
+                  </span>
+                </div>
+                <button class="btn ui-button" id="pricingPrevPage" type="button" data-od-id="model-pricing-prev-page">上一页</button>
+                <span class="pricing-page-indicator" id="pricingPageIndicator" data-od-id="model-pricing-page-indicator">第 1 / 1 页</span>
+                <button class="btn ui-button" id="pricingNextPage" type="button" data-od-id="model-pricing-next-page">下一页</button>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -897,41 +604,45 @@
           </div>
           <div class="panel-actions" data-od-id="cpa-version-actions">
             <button class="btn" id="checkCpaVersion" type="button" data-od-id="check-cpa-version-button">检查更新</button>
-            <button class="btn primary" id="updateCpaVersion" type="button" disabled data-od-id="update-cpa-version-button">暂不可用</button>
+            <button class="btn primary" id="updateCpaVersion" type="button" data-od-id="update-cpa-version-button">更新到 v0.8.4</button>
           </div>
         </div>
         <div class="panel-body version-panel-body">
           <div class="version-grid" data-od-id="cpa-version-summary">
             <article class="version-card" data-od-id="cpa-current-version-card">
               <span>当前版本</span>
-              <strong id="currentCpaVersion">未知</strong>
-              <small>当前实例未暴露版本号</small>
+              <strong id="currentCpaVersion">v0.7.2</strong>
+              <small>正在运行</small>
             </article>
             <article class="version-card" data-od-id="cpa-latest-version-card">
               <span>可更新版本</span>
-              <strong id="latestCpaVersion">尚未检查</strong>
-              <small>来自 GitHub Releases</small>
+              <strong id="latestCpaVersion">v0.8.4</strong>
+              <small>稳定版本</small>
             </article>
             <article class="version-card" data-od-id="cpa-release-channel-card">
               <span>发布渠道</span>
-              <strong>GitHub Releases</strong>
-              <small>仅检查 latest</small>
+              <strong>stable</strong>
+              <small>仅接收稳定发布</small>
             </article>
             <article class="version-card" data-od-id="cpa-last-check-card">
               <span>上次检查</span>
-              <strong id="cpaVersionLastChecked">尚未检查</strong>
-              <small>检查成功后更新</small>
+              <strong id="cpaVersionLastChecked">刚刚</strong>
+              <small>本地检测结果</small>
             </article>
           </div>
           <div class="version-update-box" data-od-id="cpa-version-update-status">
             <div class="version-update-row">
-              <p class="version-status-text" id="cpaUpdateStatus">请先保存管理密钥后再检查 CPA 版本。</p>
-              <span class="version-status-text" id="cpaUpdateProgressText">待检查</span>
+              <p class="version-status-text" id="cpaUpdateStatus">检测到可更新版本 v0.8.4，可直接执行更新。</p>
+              <span class="version-status-text" id="cpaUpdateProgressText">待更新</span>
             </div>
-            <div class="version-progress" id="cpaUpdateProgress" hidden aria-hidden="true">
+            <div class="version-progress" id="cpaUpdateProgress" hidden="" aria-hidden="true">
               <span id="cpaUpdateProgressBar"></span>
             </div>
-            <ul class="release-notes" data-od-id="cpa-version-release-notes"><li>通过 CPA 的 <code>/v0/management/latest-version</code> 检查 GitHub Releases 最新版本。</li><li>当前仅 Docker 部署支持 CPA 检查和更新入口。</li><li>启动更新后，CPA 服务会自动重启，请等待 20-30 秒后刷新页面。</li></ul>
+            <ul class="release-notes" data-od-id="cpa-version-release-notes">
+              <li>优化请求日志写入稳定性。</li>
+              <li>补充模型价格同步时的异常反馈。</li>
+              <li>修复额度统计在低频调用下的刷新延迟。</li>
+            </ul>
           </div>
         </div>
       </section>
@@ -949,6 +660,7 @@
     const cpaAuthStorageKey = "cli-proxy-auth";
     const cpaSecurePrefix = "enc::v1::";
     const cpaSecureSalt = "cli-proxy-api-webui::secure-storage";
+    const cpaVersionLastCheckedStorageKey = "cpa-toolkit.version-last-checked";
     const reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     let toastTimer = null;
     const session = { apiBase: "", managementKey: "" };
@@ -985,7 +697,7 @@
     const priceState = { page: 1, pageSize: 50 };
     let pendingPricingDeleteIndex = null;
     let priceSearchDebounceTimer = null;
-    const versionState = { deployment: "unknown", latestVersion: "", lastCheckedText: "" };
+    const versionState = { deployment: "unknown", currentVersion: "", latestVersion: "", lastCheckedText: "" };
 
     function base() { return session.apiBase || location.origin; }
     function secret() { return session.managementKey; }
@@ -1041,6 +753,12 @@
       if (!isEmbeddedInPanel()) return null;
       return extractPanelAuth(readStorageValue(window.localStorage, cpaAuthStorageKey));
     }
+    function readVersionLastChecked() {
+      try { return asString(localStorage.getItem(cpaVersionLastCheckedStorageKey)); } catch { return ""; }
+    }
+    function saveVersionLastChecked(value) {
+      try { localStorage.setItem(cpaVersionLastCheckedStorageKey, value); } catch {}
+    }
     function saveSessionSecret(value) {
       try { sessionStorage.setItem(sessionSecretStorageKey, value); } catch {}
     }
@@ -1075,6 +793,10 @@
       return data;
     }
     async function callManagement(path, opts = {}) {
+      const { data } = await callManagementResponse(path, opts);
+      return data;
+    }
+    async function callManagementResponse(path, opts = {}) {
       cleanupLegacySecret();
       const headers = Object.assign({ "content-type": "application/json" }, opts.headers || {});
       if (secret()) headers.authorization = "Bearer " + secret();
@@ -1083,7 +805,20 @@
       let data;
       try { data = JSON.parse(text); } catch { data = text; }
       if (!res.ok) throw new Error((data && data.error) || text || res.status);
-      return data;
+      return { data, headers: res.headers };
+    }
+    async function readCurrentCpaVersion() {
+      try {
+        const res = await fetch(base() + managementAPI + "/status", { headers: { "content-type": "application/json" } });
+        const current = extractCurrentVersionFromHeaders(res.headers);
+        if (current) {
+          versionState.currentVersion = current;
+          if (els.currentCpaVersion) els.currentCpaVersion.textContent = current;
+        }
+        return current;
+      } catch {
+        return "";
+      }
     }
 
     function showToast(message) {
@@ -1125,31 +860,80 @@
       }
       return "";
     }
+    function extractCurrentVersionFromHeaders(headers) {
+      if (!headers) return "";
+      const candidates = ["X-Cpa-Version", "X-Server-Version", "X-CPA-Version", "X-SERVER-Version"];
+      for (const name of candidates) {
+        const value = headers.get(name);
+        if (typeof value === "string" && value.trim()) return value.trim();
+      }
+      return "";
+    }
+    function extractCurrentVersionFromStatus(status) {
+      if (!status || typeof status !== "object") return "";
+      const candidates = [
+        status.current_cpa_version,
+        status.currentCpaVersion,
+        status.cpa_version,
+        status.cpaVersion
+      ];
+      for (const value of candidates) {
+        if (typeof value === "string" && value.trim()) return value.trim();
+      }
+      return "";
+    }
+    function normalizeVersion(value) {
+      return String(value || "").trim().toLowerCase().replace(/^v/, "");
+    }
+    function isLatestVersion() {
+      return normalizeVersion(versionState.currentVersion) !== ""
+        && normalizeVersion(versionState.currentVersion) === normalizeVersion(versionState.latestVersion);
+    }
+    function dockerUpdateLabel() {
+      if (isLatestVersion()) return "已是最新版本";
+      return versionState.latestVersion ? `更新到 ${versionState.latestVersion}` : "更新 CPA";
+    }
+    function syncVersionButtons() {
+      if (versionState.deployment !== "docker") {
+        setVersionButtons({ canCheck: false, canUpdate: false, updateLabel: "仅 Docker 支持" });
+        return;
+      }
+      setVersionButtons({
+        canCheck: true,
+        canUpdate: !isLatestVersion(),
+        updateLabel: dockerUpdateLabel()
+      });
+    }
     async function loadVersionPanel() {
-      if (els.currentCpaVersion) els.currentCpaVersion.textContent = "未知";
+      if (els.currentCpaVersion && versionState.currentVersion) els.currentCpaVersion.textContent = versionState.currentVersion;
+      await readCurrentCpaVersion();
+      versionState.lastCheckedText = versionState.lastCheckedText || readVersionLastChecked();
+      if (els.cpaVersionLastChecked) els.cpaVersionLastChecked.textContent = versionState.lastCheckedText || "尚未检查";
       if (!secret()) {
         versionState.deployment = "unknown";
         versionState.latestVersion = "";
-        versionState.lastCheckedText = "";
         if (els.latestCpaVersion) els.latestCpaVersion.textContent = "尚未检查";
-        if (els.cpaVersionLastChecked) els.cpaVersionLastChecked.textContent = "尚未检查";
+        if (els.cpaVersionLastChecked) els.cpaVersionLastChecked.textContent = versionState.lastCheckedText || "尚未检查";
         setVersionButtons({ canCheck: false, canUpdate: false, updateLabel: "需先保存密钥" });
         setVersionStatus("请先保存管理密钥后再检查 CPA 版本。", "待检查");
         return false;
       }
       try {
         const status = await call("/status");
+        const currentFromStatus = extractCurrentVersionFromStatus(status);
+        if (currentFromStatus) versionState.currentVersion = currentFromStatus;
         const dbPath = asString(status?.db_path ?? status?.dbPath ?? status?.DBPath);
         versionState.deployment = detectDeployment(dbPath);
+        if (!versionState.currentVersion) await readCurrentCpaVersion();
+        if (els.currentCpaVersion) els.currentCpaVersion.textContent = versionState.currentVersion || "未知";
         if (versionState.deployment === "docker") {
           if (els.latestCpaVersion && !versionState.latestVersion) els.latestCpaVersion.textContent = "尚未检查";
           if (els.cpaVersionLastChecked && !versionState.lastCheckedText) els.cpaVersionLastChecked.textContent = "尚未检查";
-          setVersionButtons({ canCheck: true, canUpdate: true, updateLabel: versionState.latestVersion ? `更新到 ${versionState.latestVersion}` : "更新 CPA" });
-          setVersionStatus("当前部署为 Docker，可检查 GitHub Releases 最新版本，也可直接更新并重启服务。", "可检查");
+          syncVersionButtons();
+          setVersionStatus(isLatestVersion() ? "当前 CPA 已是最新版本。" : "当前部署为 Docker，可检查 GitHub Releases 最新版本，也可直接更新并重启服务。", isLatestVersion() ? "已是最新" : "可检查");
           return true;
         }
         versionState.latestVersion = "";
-        versionState.lastCheckedText = "";
         if (els.latestCpaVersion) els.latestCpaVersion.textContent = "仅 Docker";
         if (els.cpaVersionLastChecked) els.cpaVersionLastChecked.textContent = "不适用";
         setVersionButtons({ canCheck: false, canUpdate: false, updateLabel: "仅 Docker 支持" });
@@ -1158,9 +942,8 @@
       } catch (error) {
         versionState.deployment = "unknown";
         versionState.latestVersion = "";
-        versionState.lastCheckedText = "";
         if (els.latestCpaVersion) els.latestCpaVersion.textContent = "尚未检查";
-        if (els.cpaVersionLastChecked) els.cpaVersionLastChecked.textContent = "尚未检查";
+        if (els.cpaVersionLastChecked) els.cpaVersionLastChecked.textContent = versionState.lastCheckedText || "尚未检查";
         setVersionButtons({ canCheck: false, canUpdate: false, updateLabel: "验证失败" });
         setVersionStatus(error.message || "验证当前部署失败。", "校验失败");
         return false;
@@ -1172,15 +955,19 @@
       try {
         setVersionButtons({ canCheck: false, canUpdate: false, updateLabel: versionState.latestVersion ? `更新到 ${versionState.latestVersion}` : "更新 CPA" });
         setVersionStatus("正在检查 GitHub Releases 最新版本。", "检查中");
-        const payload = await callManagement("/latest-version");
-        const latestVersion = extractLatestVersion(payload);
+        const latestResponse = await callManagementResponse("/latest-version");
+        const current = extractCurrentVersionFromHeaders(latestResponse.headers);
+        if (current) versionState.currentVersion = current;
+        if (els.currentCpaVersion) els.currentCpaVersion.textContent = versionState.currentVersion || "未知";
+        const latestVersion = extractLatestVersion(latestResponse.data);
         if (!latestVersion) throw new Error("CPA 未返回最新版本号。");
         versionState.latestVersion = latestVersion;
         versionState.lastCheckedText = new Date().toLocaleString();
+        saveVersionLastChecked(versionState.lastCheckedText);
         if (els.latestCpaVersion) els.latestCpaVersion.textContent = latestVersion;
         if (els.cpaVersionLastChecked) els.cpaVersionLastChecked.textContent = versionState.lastCheckedText;
-        setVersionStatus(`已检查到最新版本 ${latestVersion}。`, "已完成");
-        setVersionButtons({ canCheck: true, canUpdate: true, updateLabel: `更新到 ${latestVersion}` });
+        setVersionStatus(isLatestVersion() ? `当前已是最新版本 ${latestVersion}。` : `已检查到最新版本 ${latestVersion}。`, isLatestVersion() ? "已是最新" : "已完成");
+        syncVersionButtons();
         showToast(`CPA 最新版本：${latestVersion}`);
       } catch (error) {
         setVersionStatus(error.message || "检查更新失败。", "检查失败");
@@ -1188,16 +975,20 @@
       } finally {
         setVersionButtons({
           canCheck: versionState.deployment === "docker",
-          canUpdate: versionState.deployment === "docker",
-          updateLabel: versionState.deployment === "docker"
-            ? (versionState.latestVersion ? `更新到 ${versionState.latestVersion}` : "更新 CPA")
-            : "仅 Docker 支持"
+          canUpdate: versionState.deployment === "docker" && !isLatestVersion(),
+          updateLabel: versionState.deployment === "docker" ? dockerUpdateLabel() : "仅 Docker 支持"
         });
       }
     }
     async function updateCpaVersion() {
       const canUpdate = await loadVersionPanel();
       if (!canUpdate || versionState.deployment !== "docker") return;
+      if (isLatestVersion()) {
+        syncVersionButtons();
+        setVersionStatus("当前 CPA 已是最新版本，无需更新。", "已是最新");
+        showToast("当前已是最新版本");
+        return;
+      }
       const target = versionState.latestVersion ? ` ${versionState.latestVersion}` : "";
       if (!window.confirm(`将拉取最新 CPA 镜像并重启 cli-proxy-api 服务${target}，是否继续？`)) return;
       try {
@@ -1220,8 +1011,8 @@
         setVersionStatus(error.message || "启动更新失败。", "更新失败");
         setVersionButtons({
           canCheck: versionState.deployment === "docker",
-          canUpdate: versionState.deployment === "docker",
-          updateLabel: versionState.latestVersion ? `更新到 ${versionState.latestVersion}` : "更新 CPA"
+          canUpdate: versionState.deployment === "docker" && !isLatestVersion(),
+          updateLabel: dockerUpdateLabel()
         });
         showToast(error.message || "启动更新失败");
       }

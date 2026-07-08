@@ -46,6 +46,7 @@ const (
 	resourceAPIKeys  = "/01-apikey.html"
 	resourceUsage    = "/02-usage-statistics.html"
 	resourceSettings = "/03-settings.html"
+	resourceSharedUI = "/shared-ui.css"
 	resourceIndex    = "/index.html"
 
 	legacyResourceAPIKeys  = "/apikey.html"
