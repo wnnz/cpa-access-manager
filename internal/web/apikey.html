@@ -1726,7 +1726,11 @@
       const id = button.dataset.id;
       const key = state.keys.find(item => item.id === id);
       if (button.dataset.action === "copy") {
-        copyText(maskKeyText(key?.key_prefix || id), "已复制脱敏文本");
+        if (key?.plain_key) {
+          copyText(key.plain_key, "已复制完整 API Key");
+        } else {
+          showToast("历史 API Key 无法还原，请轮换后再复制");
+        }
         clearPendingDelete();
       }
       if (button.dataset.action === "edit") {

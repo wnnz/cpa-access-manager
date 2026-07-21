@@ -76,6 +76,7 @@ func (s *Store) init(ctx context.Context) error {
 			name TEXT NOT NULL DEFAULT '',
 			key_hash TEXT NOT NULL UNIQUE,
 			key_prefix TEXT NOT NULL DEFAULT '',
+			key_plain TEXT NOT NULL DEFAULT '',
 			enabled INTEGER NOT NULL DEFAULT 1,
 			five_hour_limit_usd REAL NULL,
 			weekly_limit_usd REAL NULL,
@@ -162,10 +163,25 @@ func (s *Store) init(ctx context.Context) error {
 			return err
 		}
 	}
+	if err := s.ensureKeyColumns(ctx); err != nil {
+		return err
+	}
 	if err := s.ensureUsageLedgerColumns(ctx); err != nil {
 		return err
 	}
 	_, err := s.db.ExecContext(ctx, `INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES(1, ?)`, timeNowString())
+	return err
+}
+
+func (s *Store) ensureKeyColumns(ctx context.Context) error {
+	columns, err := s.tableColumns(ctx, "keys")
+	if err != nil {
+		return err
+	}
+	if columns["key_plain"] {
+		return nil
+	}
+	_, err = s.db.ExecContext(ctx, "ALTER TABLE keys ADD COLUMN key_plain TEXT NOT NULL DEFAULT ''")
 	return err
 }
 
@@ -231,8 +247,8 @@ func (s *Store) CreateKey(ctx context.Context, name string, enabled bool, limits
 		return Key{}, "", err
 	}
 	defer rollback(tx)
-	if _, err := tx.ExecContext(ctx, `INSERT INTO keys(id, name, key_hash, key_prefix, enabled, five_hour_limit_usd, weekly_limit_usd, total_limit_usd, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		id, strings.TrimSpace(name), hash, prefix, boolInt(enabled), nullFloat(limits.FiveHourUSD), nullFloat(limits.WeeklyUSD), nullFloat(limits.TotalUSD), now, now); err != nil {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO keys(id, name, key_hash, key_prefix, key_plain, enabled, five_hour_limit_usd, weekly_limit_usd, total_limit_usd, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		id, strings.TrimSpace(name), hash, prefix, plain, boolInt(enabled), nullFloat(limits.FiveHourUSD), nullFloat(limits.WeeklyUSD), nullFloat(limits.TotalUSD), now, now); err != nil {
 		return Key{}, "", err
 	}
 	if err := replaceBindings(ctx, tx, id, bindings); err != nil {
@@ -250,7 +266,7 @@ func (s *Store) RotateKey(ctx context.Context, id string) (Key, string, error) {
 	if err != nil {
 		return Key{}, "", err
 	}
-	res, err := s.db.ExecContext(ctx, `UPDATE keys SET key_hash = ?, key_prefix = ?, updated_at = ? WHERE id = ?`, hash, prefix, timeNowString(), strings.TrimSpace(id))
+	res, err := s.db.ExecContext(ctx, `UPDATE keys SET key_hash = ?, key_prefix = ?, key_plain = ?, updated_at = ? WHERE id = ?`, hash, prefix, plain, timeNowString(), strings.TrimSpace(id))
 	if err != nil {
 		return Key{}, "", err
 	}
@@ -318,7 +334,7 @@ func (s *Store) DeleteKey(ctx context.Context, id string) error {
 }
 
 func (s *Store) GetKey(ctx context.Context, id string) (Key, error) {
-	row := s.db.QueryRowContext(ctx, `SELECT id, name, key_prefix, enabled, five_hour_limit_usd, weekly_limit_usd, total_limit_usd, created_at, updated_at, last_used_at FROM keys WHERE id = ?`, strings.TrimSpace(id))
+	row := s.db.QueryRowContext(ctx, `SELECT id, name, key_prefix, key_plain, enabled, five_hour_limit_usd, weekly_limit_usd, total_limit_usd, created_at, updated_at, last_used_at FROM keys WHERE id = ?`, strings.TrimSpace(id))
 	key, err := scanKey(row)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -332,7 +348,7 @@ func (s *Store) GetKey(ctx context.Context, id string) (Key, error) {
 }
 
 func (s *Store) ListKeys(ctx context.Context) ([]Key, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, name, key_prefix, enabled, five_hour_limit_usd, weekly_limit_usd, total_limit_usd, created_at, updated_at, last_used_at FROM keys ORDER BY created_at DESC, id`)
+	rows, err := s.db.QueryContext(ctx, `SELECT id, name, key_prefix, key_plain, enabled, five_hour_limit_usd, weekly_limit_usd, total_limit_usd, created_at, updated_at, last_used_at FROM keys ORDER BY created_at DESC, id`)
 	if err != nil {
 		return nil, err
 	}
@@ -374,7 +390,7 @@ func (s *Store) KeyByPresentedToken(ctx context.Context, token string) (Key, err
 		return Key{}, ErrKeyNotFound
 	}
 	hash := hashToken(token)
-	row := s.db.QueryRowContext(ctx, `SELECT id, name, key_prefix, enabled, five_hour_limit_usd, weekly_limit_usd, total_limit_usd, created_at, updated_at, last_used_at FROM keys WHERE key_hash = ?`, hash)
+	row := s.db.QueryRowContext(ctx, `SELECT id, name, key_prefix, key_plain, enabled, five_hour_limit_usd, weekly_limit_usd, total_limit_usd, created_at, updated_at, last_used_at FROM keys WHERE key_hash = ?`, hash)
 	key, err := scanKey(row)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -1124,7 +1140,7 @@ func scanKey(row rowScanner) (Key, error) {
 	var five, weekly, total sql.NullFloat64
 	var created, updated string
 	var last sql.NullString
-	if err := row.Scan(&key.ID, &key.Name, &key.KeyPrefix, &enabled, &five, &weekly, &total, &created, &updated, &last); err != nil {
+	if err := row.Scan(&key.ID, &key.Name, &key.KeyPrefix, &key.PlainKey, &enabled, &five, &weekly, &total, &created, &updated, &last); err != nil {
 		return Key{}, err
 	}
 	key.Enabled = enabled != 0

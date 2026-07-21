@@ -2,12 +2,84 @@ package access
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"math"
 	"path/filepath"
 	"testing"
 	"time"
 )
+
+func TestKeyPlainTextPersistsAndRotates(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	created, plain, err := store.CreateKey(ctx, "copyable", true, Limits{}, nil)
+	if err != nil {
+		t.Fatalf("CreateKey() error = %v", err)
+	}
+	if created.PlainKey != plain || plain == "" {
+		t.Fatalf("created PlainKey = %q, want generated plain key", created.PlainKey)
+	}
+
+	loaded, err := store.GetKey(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("GetKey() error = %v", err)
+	}
+	if loaded.PlainKey != plain {
+		t.Fatalf("loaded PlainKey = %q, want %q", loaded.PlainKey, plain)
+	}
+
+	rotated, rotatedPlain, err := store.RotateKey(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("RotateKey() error = %v", err)
+	}
+	if rotatedPlain == "" || rotatedPlain == plain || rotated.PlainKey != rotatedPlain {
+		t.Fatalf("rotated PlainKey = %q, generated = %q, previous = %q", rotated.PlainKey, rotatedPlain, plain)
+	}
+}
+
+func TestOpenStoreAddsPlainKeyColumnToExistingDatabase(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "legacy.db")
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatalf("sql.Open() error = %v", err)
+	}
+	_, err = db.ExecContext(ctx, `CREATE TABLE keys (
+		id TEXT PRIMARY KEY,
+		name TEXT NOT NULL DEFAULT '',
+		key_hash TEXT NOT NULL UNIQUE,
+		key_prefix TEXT NOT NULL DEFAULT '',
+		enabled INTEGER NOT NULL DEFAULT 1,
+		five_hour_limit_usd REAL NULL,
+		weekly_limit_usd REAL NULL,
+		total_limit_usd REAL NULL,
+		created_at TEXT NOT NULL,
+		updated_at TEXT NOT NULL,
+		last_used_at TEXT NULL
+	)`)
+	if err != nil {
+		_ = db.Close()
+		t.Fatalf("create legacy keys table error = %v", err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("legacy db Close() error = %v", err)
+	}
+
+	store, err := OpenStore(ctx, path, false)
+	if err != nil {
+		t.Fatalf("OpenStore() migration error = %v", err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	key, plain, err := store.CreateKey(ctx, "after-migration", true, Limits{}, nil)
+	if err != nil {
+		t.Fatalf("CreateKey() after migration error = %v", err)
+	}
+	if key.PlainKey != plain || plain == "" {
+		t.Fatalf("PlainKey after migration = %q, want generated key", key.PlainKey)
+	}
+}
 
 func newTestStore(t *testing.T) *Store {
 	t.Helper()

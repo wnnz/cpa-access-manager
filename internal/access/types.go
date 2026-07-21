@@ -37,6 +37,7 @@ type Key struct {
 	ID         string     `json:"id"`
 	Name       string     `json:"name,omitempty"`
 	KeyPrefix  string     `json:"key_prefix,omitempty"`
+	PlainKey   string     `json:"plain_key,omitempty"`
 	Enabled    bool       `json:"enabled"`
 	Limits     Limits     `json:"limits"`
 	Bindings   []Binding  `json:"bindings,omitempty"`
