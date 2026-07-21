@@ -652,6 +652,10 @@
         box-shadow var(--motion-fast) var(--ease-out);
     }
 
+    .resource-option.is-empty {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
     .resource-option:has(input:checked) {
       border-color: var(--primary);
       background: var(--primary-soft);
@@ -811,7 +815,7 @@
 </head>
 <body>
   <main class="page" data-od-id="api-key-list-page">
-    <header class="topbar" data-od-id="topbar">
+    <header class="topbar" data-od-id="topbar" style="margin-bottom: 0px;">
       <div class="title" data-od-id="page-title-area">
         <h1 data-od-id="page-title">API Key 管理</h1>
       </div>
