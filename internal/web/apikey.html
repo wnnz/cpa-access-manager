@@ -92,109 +92,6 @@
       flex: 0 0 auto;
     }
 
-    .refresh-group {
-      position: relative;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .refresh-countdown {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--muted);
-      font-family: var(--mono);
-      font-size: 12px;
-      font-weight: 700;
-      font-variant-numeric: tabular-nums;
-      white-space: nowrap;
-    }
-
-    .refresh-countdown[hidden] {
-      display: none;
-    }
-
-    .refresh-countdown.busy {
-      color: #087452;
-      font-family: var(--font);
-    }
-
-    .refresh-action {
-      display: inline-flex;
-      align-items: center;
-    }
-
-    .refresh-action #refreshBtn {
-      border-top-right-radius: 0;
-      border-bottom-right-radius: 0;
-    }
-
-    .refresh-action .auto-refresh-wrap {
-      margin-left: -1px;
-    }
-
-    .refresh-action .auto-refresh-toggle {
-      border-top-left-radius: 0;
-      border-bottom-left-radius: 0;
-    }
-
-    .refresh-action #refreshBtn:hover,
-    .refresh-action .auto-refresh-toggle:hover {
-      position: relative;
-      z-index: 1;
-    }
-
-    .auto-refresh-wrap {
-      position: relative;
-      display: inline-flex;
-    }
-
-    .auto-refresh-toggle {
-      width: 34px;
-      padding: 0;
-    }
-
-    .auto-refresh-toggle svg {
-      width: 14px;
-      height: 14px;
-    }
-
-    .auto-refresh-menu {
-      position: absolute;
-      top: calc(100% + 6px);
-      right: 0;
-      z-index: 30;
-      display: grid;
-      gap: 2px;
-      min-width: 132px;
-      padding: 6px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: var(--surface);
-      box-shadow: var(--shadow);
-    }
-
-    .auto-refresh-menu[hidden] {
-      display: none;
-    }
-
-    .auto-refresh-option {
-      height: 30px;
-      padding: 0 9px;
-      border-radius: 6px;
-      color: var(--fg);
-      background: transparent;
-      text-align: left;
-      font-size: 13px;
-      font-weight: 650;
-    }
-
-    .auto-refresh-option:hover,
-    .auto-refresh-option.active {
-      background: #eee9e1;
-    }
-
     .card {
       flex: 1 1 auto;
       min-height: 0;
@@ -945,27 +842,10 @@
             <option value="all">全部关联资源</option>
           </select>
           <div class="top-actions" data-od-id="top-actions">
-            <div class="refresh-group" data-od-id="refresh-control-group">
-              <span class="refresh-countdown" id="refreshCountdown" data-od-id="refresh-countdown" hidden></span>
-              <div class="refresh-action" data-od-id="refresh-split-button">
-                <button class="btn ui-button" id="refreshBtn" data-od-id="refresh-button">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path><path d="M3 21v-5h5"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M21 3v5h-5"></path></svg>
-                  刷新
-                </button>
-                <div class="auto-refresh-wrap">
-                  <button class="btn ui-button auto-refresh-toggle" id="autoRefreshToggle" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="自动刷新间隔" data-od-id="auto-refresh-toggle">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 9 6 6 6-6"></path></svg>
-                  </button>
-                  <div class="auto-refresh-menu" id="autoRefreshMenu" role="menu" aria-label="自动刷新间隔" hidden data-od-id="auto-refresh-menu">
-                    <button class="auto-refresh-option" type="button" role="menuitemradio" aria-checked="false" data-interval="0" data-od-id="auto-refresh-none">不自动刷新</button>
-                    <button class="auto-refresh-option" type="button" role="menuitemradio" aria-checked="false" data-interval="5" data-od-id="auto-refresh-5s">5秒</button>
-                    <button class="auto-refresh-option" type="button" role="menuitemradio" aria-checked="false" data-interval="10" data-od-id="auto-refresh-10s">10秒</button>
-                    <button class="auto-refresh-option" type="button" role="menuitemradio" aria-checked="false" data-interval="15" data-od-id="auto-refresh-15s">15秒</button>
-                    <button class="auto-refresh-option active" type="button" role="menuitemradio" aria-checked="true" data-interval="30" data-od-id="auto-refresh-30s">30秒</button>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <button class="btn ui-button" id="refreshBtn" type="button" data-od-id="refresh-button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path><path d="M3 21v-5h5"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M21 3v5h-5"></path></svg>
+              刷新
+            </button>
             <button class="btn ui-button primary ui-button--primary" id="openCreate" data-od-id="create-api-key-button">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
               新建 API Key
@@ -1105,9 +985,6 @@
     const session = { apiBase: "", managementKey: "" };
     let toastTimer = null;
     let lastFocusedElement = null;
-    let autoRefreshInterval = 30;
-    let autoRefreshRemaining = 30;
-    let autoRefreshTimer = null;
     let keyCurrentPage = 1;
     const reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -1130,10 +1007,6 @@
       quotaTotal: $("quotaTotalInput"),
       quotaError: $("quotaError"),
       resourceError: $("resourceError"),
-      refreshCountdown: $("refreshCountdown"),
-      autoRefreshToggle: $("autoRefreshToggle"),
-      autoRefreshMenu: $("autoRefreshMenu"),
-      autoRefreshOptions: Array.from(document.querySelectorAll(".auto-refresh-option")),
       keyPageSummary: $("keyPageSummary"),
       keyPageSize: $("keyPageSize"),
       keyPrevPage: $("keyPrevPage"),
@@ -1798,64 +1671,6 @@
       renderRows();
       return true;
     }
-    function closeAutoRefreshMenu() {
-      els.autoRefreshMenu.hidden = true;
-      els.autoRefreshToggle.setAttribute("aria-expanded", "false");
-    }
-    function updateAutoRefreshOptions() {
-      els.autoRefreshOptions.forEach(option => {
-        const active = Number(option.dataset.interval) === autoRefreshInterval;
-        option.classList.toggle("active", active);
-        option.setAttribute("aria-checked", active ? "true" : "false");
-      });
-    }
-    function clearAutoRefreshTimer() {
-      if (!autoRefreshTimer) return;
-      window.clearInterval(autoRefreshTimer);
-      autoRefreshTimer = null;
-    }
-    function renderAutoRefreshCountdown() {
-      if (!autoRefreshInterval) {
-        els.refreshCountdown.hidden = true;
-        els.refreshCountdown.classList.remove("busy");
-        els.refreshCountdown.textContent = "";
-        return;
-      }
-      els.refreshCountdown.hidden = false;
-      els.refreshCountdown.classList.remove("busy");
-      els.refreshCountdown.textContent = `${autoRefreshRemaining}s`;
-    }
-    function startAutoRefreshCountdown() {
-      clearAutoRefreshTimer();
-      if (!autoRefreshInterval) {
-        renderAutoRefreshCountdown();
-        return;
-      }
-      autoRefreshRemaining = autoRefreshInterval;
-      renderAutoRefreshCountdown();
-      autoRefreshTimer = window.setInterval(() => {
-        autoRefreshRemaining -= 1;
-        if (autoRefreshRemaining <= 0) {
-          clearAutoRefreshTimer();
-          els.refreshCountdown.hidden = false;
-          els.refreshCountdown.classList.add("busy");
-          els.refreshCountdown.textContent = "正在刷新";
-          window.setTimeout(async () => {
-            await load(false);
-            startAutoRefreshCountdown();
-          }, 520);
-          return;
-        }
-        renderAutoRefreshCountdown();
-      }, 1000);
-    }
-    function setAutoRefreshInterval(seconds) {
-      autoRefreshInterval = seconds;
-      updateAutoRefreshOptions();
-      closeAutoRefreshMenu();
-      startAutoRefreshCountdown();
-    }
-
     function resetKeyPage() {
       keyCurrentPage = 1;
     }
@@ -1881,23 +1696,12 @@
     });
     document.addEventListener("keydown", event => {
       if (event.key === "Escape" && els.drawer.classList.contains("open")) closeDrawer();
-      if (event.key === "Escape" && !els.autoRefreshMenu.hidden) closeAutoRefreshMenu();
       if (event.key === "Escape") closeStyledSelects();
     });
     document.addEventListener("click", event => {
       if (!event.target.closest(".styled-select")) closeStyledSelects();
       if (event.target.closest(".row-actions")) return;
       clearPendingDelete();
-    });
-    els.autoRefreshToggle.addEventListener("click", () => {
-      const shouldOpen = els.autoRefreshMenu.hidden;
-      els.autoRefreshMenu.hidden = !shouldOpen;
-      els.autoRefreshToggle.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
-    });
-    els.autoRefreshMenu.addEventListener("click", event => {
-      const option = event.target.closest(".auto-refresh-option");
-      if (!option) return;
-      setAutoRefreshInterval(Number(option.dataset.interval));
     });
     els.keyPageSize.addEventListener("change", () => {
       resetKeyPage();
@@ -1911,11 +1715,6 @@
     els.keyNextPage.addEventListener("click", () => {
       keyCurrentPage += 1;
       renderRows();
-    });
-    document.addEventListener("click", event => {
-      if (els.autoRefreshMenu.hidden) return;
-      if (event.target.closest(".auto-refresh-wrap")) return;
-      closeAutoRefreshMenu();
     });
     els.rows.addEventListener("click", event => {
       const button = event.target.closest("button");
@@ -1938,13 +1737,12 @@
     });
     $("refreshBtn").addEventListener("click", async () => {
       await load(true);
-      if (autoRefreshInterval) startAutoRefreshCountdown();
       showToast("列表已刷新");
     });
 
     initSession();
     initStyledSelects();
-    if (secret()) load(false).finally(() => startAutoRefreshCountdown());
+    if (secret()) load(false);
     else setNotice("没有找到可复用的 CPA 管理登录。请从 CPA 管理后台的插件页面打开。", true);
   </script>
 </body>

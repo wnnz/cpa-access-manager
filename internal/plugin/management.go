@@ -390,7 +390,10 @@ func (a *App) handlePriceSync(store *access.Store, req ManagementRequest) Manage
 	if err != nil {
 		return errorJSON(http.StatusBadRequest, err)
 	}
-	if err := store.UpsertPriceRules(context.Background(), rules); err != nil {
+	if len(rules) == 0 {
+		return errorJSON(http.StatusBadRequest, errors.New("price source contains no supported official model prices"))
+	}
+	if err := store.ReplacePriceRules(context.Background(), rules); err != nil {
 		return errorJSON(http.StatusBadRequest, err)
 	}
 	return jsonManagement(http.StatusOK, priceSyncResponse{SourceURL: sourceURL, Synced: len(rules)})

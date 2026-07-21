@@ -750,6 +750,29 @@ func (s *Store) UpsertPriceRules(ctx context.Context, rules []PriceRule) error {
 		return err
 	}
 	defer rollback(tx)
+	if err := upsertPriceRulesTx(ctx, tx, rules, now); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func (s *Store) ReplacePriceRules(ctx context.Context, rules []PriceRule) error {
+	now := timeNowString()
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer rollback(tx)
+	if _, err := tx.ExecContext(ctx, `DELETE FROM price_rules`); err != nil {
+		return err
+	}
+	if err := upsertPriceRulesTx(ctx, tx, rules, now); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func upsertPriceRulesTx(ctx context.Context, tx *sql.Tx, rules []PriceRule, now string) error {
 	for _, rule := range rules {
 		provider := normalizeProvider(rule.Provider)
 		model := strings.TrimSpace(rule.Model)
@@ -764,7 +787,7 @@ func (s *Store) UpsertPriceRules(ctx context.Context, rules []PriceRule) error {
 			return err
 		}
 	}
-	return tx.Commit()
+	return nil
 }
 
 func (s *Store) ListPriceRules(ctx context.Context) ([]PriceRule, error) {
@@ -787,7 +810,21 @@ func (s *Store) ListPriceRules(ctx context.Context) ([]PriceRule, error) {
 }
 
 func (s *Store) PriceRule(ctx context.Context, provider, model string) (PriceRule, error) {
-	row := s.db.QueryRowContext(ctx, `SELECT provider, model, input_usd_per_million, output_usd_per_million, cache_read_usd_per_million, updated_at FROM price_rules WHERE provider = ? AND model = ?`, normalizeProvider(provider), strings.TrimSpace(model))
+	provider = normalizeProvider(provider)
+	model = strings.TrimSpace(model)
+	rule, err := s.priceRule(ctx, provider, model)
+	if err == nil || !errors.Is(err, ErrMissingPriceRule) {
+		return rule, err
+	}
+	officialProvider := officialPriceProvider(provider)
+	if officialProvider == provider {
+		return PriceRule{}, ErrMissingPriceRule
+	}
+	return s.priceRule(ctx, officialProvider, model)
+}
+
+func (s *Store) priceRule(ctx context.Context, provider, model string) (PriceRule, error) {
+	row := s.db.QueryRowContext(ctx, `SELECT provider, model, input_usd_per_million, output_usd_per_million, cache_read_usd_per_million, updated_at FROM price_rules WHERE provider = ? AND model = ?`, provider, model)
 	var rule PriceRule
 	var updated string
 	if err := row.Scan(&rule.Provider, &rule.Model, &rule.InputUSDPerMillion, &rule.OutputUSDPerMillion, &rule.CacheReadUSDPerMillion, &updated); err != nil {
@@ -798,6 +835,19 @@ func (s *Store) PriceRule(ctx context.Context, provider, model string) (PriceRul
 	}
 	rule.UpdatedAt = parseTime(updated)
 	return rule, nil
+}
+
+func officialPriceProvider(provider string) string {
+	switch normalizeProvider(provider) {
+	case "codex":
+		return "openai"
+	case "claude":
+		return "anthropic"
+	case "vertex_ai":
+		return "vertex"
+	default:
+		return normalizeProvider(provider)
+	}
 }
 
 func (s *Store) RecordUsage(ctx context.Context, entry UsageEntry) (UsageEntry, error) {

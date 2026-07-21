@@ -98,7 +98,7 @@ func liteLLMPriceRules(specs map[string]liteLLMPriceSpec) []access.PriceRule {
 		if spec.InputCostPerToken <= 0 && spec.OutputCostPerToken <= 0 && spec.CacheReadInputCostToken <= 0 {
 			continue
 		}
-		providers := priceProviderAliases(firstNonEmpty(spec.Provider, providerFromModelName(rawModel)))
+		providers := officialPriceProviderAliases(rawModel, firstNonEmpty(spec.Provider, providerFromModelName(rawModel)))
 		models := priceModelAliases(rawModel)
 		for _, provider := range providers {
 			for _, model := range models {
@@ -127,22 +127,24 @@ func providerFromModelName(model string) string {
 	return ""
 }
 
-func priceProviderAliases(provider string) []string {
+func officialPriceProviderAliases(model, provider string) []string {
 	provider = strings.ToLower(strings.TrimSpace(provider))
 	switch provider {
-	case "":
-		return nil
-	case "openai":
-		return []string{"openai", "codex"}
+	case "openai", "text-completion-openai":
+		return []string{"openai"}
 	case "anthropic":
-		return []string{"anthropic", "claude"}
-	case "vertex_ai", "vertex-ai":
-		return []string{"vertex", "vertex_ai"}
-	case "google", "google_ai_studio":
+		return []string{"anthropic"}
+	case "gemini", "google", "google_ai_studio":
 		return []string{"gemini"}
-	default:
-		return []string{provider}
+	case "vertex_ai-language-models":
+		return []string{"vertex"}
+	case "vertex_ai", "vertex-ai":
+		_, modelName, _ := strings.Cut(strings.ToLower(strings.TrimSpace(model)), "/")
+		if strings.HasPrefix(modelName, "gemini") {
+			return []string{"vertex"}
+		}
 	}
+	return nil
 }
 
 func priceModelAliases(model string) []string {

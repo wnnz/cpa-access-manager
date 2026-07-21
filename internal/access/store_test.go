@@ -297,6 +297,37 @@ func TestRecordUsageInfersCacheReadTokensFromCachedTokens(t *testing.T) {
 	}
 }
 
+func TestReplacePriceRulesRemovesExistingRules(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+	if err := store.UpsertPriceRules(ctx, []PriceRule{{
+		Provider: "azure",
+		Model:    "gpt-5.5",
+	}}); err != nil {
+		t.Fatalf("UpsertPriceRules() error = %v", err)
+	}
+	if err := store.ReplacePriceRules(ctx, []PriceRule{{
+		Provider:            "openai",
+		Model:               "gpt-5.5",
+		InputUSDPerMillion:  5,
+		OutputUSDPerMillion: 30,
+	}}); err != nil {
+		t.Fatalf("ReplacePriceRules() error = %v", err)
+	}
+
+	if _, err := store.PriceRule(ctx, "azure", "gpt-5.5"); !errors.Is(err, ErrMissingPriceRule) {
+		t.Fatalf("azure PriceRule() error = %v, want ErrMissingPriceRule", err)
+	}
+	if _, err := store.PriceRule(ctx, "openai", "gpt-5.5"); err != nil {
+		t.Fatalf("openai PriceRule() error = %v", err)
+	}
+	if rule, err := store.PriceRule(ctx, "codex", "gpt-5.5"); err != nil {
+		t.Fatalf("codex PriceRule() fallback error = %v", err)
+	} else if rule.Provider != "openai" {
+		t.Fatalf("codex PriceRule() provider = %q, want openai fallback", rule.Provider)
+	}
+}
+
 func TestAuthenticate_RejectsKeyIDAsPresentedToken(t *testing.T) {
 	store := newTestStore(t)
 	key, _, err := store.CreateKey(context.Background(), "team", true, Limits{}, []Binding{{TargetType: BindingAuthID, TargetID: "auth-a"}})

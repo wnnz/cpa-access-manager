@@ -597,6 +597,12 @@ func TestAppUsageHandleRecordsCPADurationFields(t *testing.T) {
 
 func TestAppManagementSyncPricesFromSource(t *testing.T) {
 	app, store := newTestApp(t)
+	if err := store.UpsertPriceRules(context.Background(), []access.PriceRule{{
+		Provider: "ai21",
+		Model:    "j2-ultra",
+	}}); err != nil {
+		t.Fatalf("seed stale price rule error = %v", err)
+	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("content-type", "application/json")
 		_, _ = w.Write([]byte(`{
@@ -610,6 +616,11 @@ func TestAppManagementSyncPricesFromSource(t *testing.T) {
 				"litellm_provider": "anthropic",
 				"input_cost_per_token": 0.000003,
 				"output_cost_per_token": 0.000015
+			},
+			"azure/gpt-test": {
+				"litellm_provider": "azure",
+				"input_cost_per_token": 0.000002,
+				"output_cost_per_token": 0.000008
 			}
 		}`))
 	}))
@@ -645,6 +656,15 @@ func TestAppManagementSyncPricesFromSource(t *testing.T) {
 	}
 	if claudeRule.InputUSDPerMillion != 3 || claudeRule.OutputUSDPerMillion != 15 {
 		t.Fatalf("claude rule = %#v, want 3/15", claudeRule)
+	}
+	rules, err := store.ListPriceRules(context.Background())
+	if err != nil {
+		t.Fatalf("ListPriceRules() error = %v", err)
+	}
+	for _, rule := range rules {
+		if rule.Provider == "azure" || rule.Provider == "ai21" {
+			t.Fatalf("unexpected stale or non-official rule: %#v", rule)
+		}
 	}
 }
 
