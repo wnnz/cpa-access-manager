@@ -957,11 +957,11 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 9 6 6 6-6"></path></svg>
                   </button>
                   <div class="auto-refresh-menu" id="autoRefreshMenu" role="menu" aria-label="自动刷新间隔" hidden data-od-id="auto-refresh-menu">
-                    <button class="auto-refresh-option active" type="button" role="menuitemradio" aria-checked="true" data-interval="0" data-od-id="auto-refresh-none">不自动刷新</button>
+                    <button class="auto-refresh-option" type="button" role="menuitemradio" aria-checked="false" data-interval="0" data-od-id="auto-refresh-none">不自动刷新</button>
                     <button class="auto-refresh-option" type="button" role="menuitemradio" aria-checked="false" data-interval="5" data-od-id="auto-refresh-5s">5秒</button>
                     <button class="auto-refresh-option" type="button" role="menuitemradio" aria-checked="false" data-interval="10" data-od-id="auto-refresh-10s">10秒</button>
                     <button class="auto-refresh-option" type="button" role="menuitemradio" aria-checked="false" data-interval="15" data-od-id="auto-refresh-15s">15秒</button>
-                    <button class="auto-refresh-option" type="button" role="menuitemradio" aria-checked="false" data-interval="30" data-od-id="auto-refresh-30s">30秒</button>
+                    <button class="auto-refresh-option active" type="button" role="menuitemradio" aria-checked="true" data-interval="30" data-od-id="auto-refresh-30s">30秒</button>
                   </div>
                 </div>
               </div>
@@ -1105,8 +1105,8 @@
     const session = { apiBase: "", managementKey: "" };
     let toastTimer = null;
     let lastFocusedElement = null;
-    let autoRefreshInterval = 0;
-    let autoRefreshRemaining = 0;
+    let autoRefreshInterval = 30;
+    let autoRefreshRemaining = 30;
     let autoRefreshTimer = null;
     let keyCurrentPage = 1;
     const reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -1944,7 +1944,7 @@
 
     initSession();
     initStyledSelects();
-    if (secret()) load(false);
+    if (secret()) load(false).finally(() => startAutoRefreshCountdown());
     else setNotice("没有找到可复用的 CPA 管理登录。请从 CPA 管理后台的插件页面打开。", true);
   </script>
 </body>

@@ -155,10 +155,15 @@ func (a *App) currentCPAVersion(ctx context.Context, req ManagementRequest) stri
 		return ""
 	}
 	defer resp.Body.Close()
+	// CPA attaches its version headers before route handling, including when this
+	// compatibility probe returns 404 on builds without the status endpoint.
+	if version := firstNonEmptyHeader(resp.Header, "X-Cpa-Version", "X-CPA-Version", "X-Server-Version", "X-SERVER-Version"); version != "" {
+		return version
+	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return ""
 	}
-	return firstNonEmptyHeader(resp.Header, "X-Cpa-Version", "X-CPA-Version", "X-Server-Version", "X-SERVER-Version")
+	return ""
 }
 
 func firstNonEmptyHeader(headers http.Header, names ...string) string {

@@ -327,8 +327,7 @@ func TestAppManagementStatusIncludesCurrentCPAVersion(t *testing.T) {
 			t.Fatalf("authorization = %q, want bearer token", got)
 		}
 		w.Header().Set("X-Cpa-Version", "v7.2.53")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"status":"ok"}`))
+		w.WriteHeader(http.StatusNotFound)
 	}))
 	t.Cleanup(cpa.Close)
 	t.Setenv("CPA_ACCESS_MANAGER_CPA_BASE", cpa.URL)

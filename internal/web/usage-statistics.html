@@ -530,8 +530,8 @@
         <div class="filter-group" data-od-id="time-range-filter-group">
           <span class="filter-label">时间范围:</span>
           <select id="timeRange" data-od-id="time-range-select" aria-label="时间范围">
+            <option value="today" selected>今日</option>
             <option value="24h">近24小时</option>
-            <option value="today">今日</option>
             <option value="7d">近7天</option>
             <option value="30d">近30天</option>
           </select>
@@ -557,11 +557,11 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m6 9 6 6 6-6"></path></svg>
               </button>
               <div class="auto-refresh-menu" id="autoRefreshMenu" role="menu" aria-label="自动刷新间隔" hidden data-od-id="usage-auto-refresh-menu">
-                <button class="auto-refresh-option active" type="button" role="menuitemradio" aria-checked="true" data-interval="0" data-od-id="usage-auto-refresh-none">不自动刷新</button>
+                <button class="auto-refresh-option" type="button" role="menuitemradio" aria-checked="false" data-interval="0" data-od-id="usage-auto-refresh-none">不自动刷新</button>
                 <button class="auto-refresh-option" type="button" role="menuitemradio" aria-checked="false" data-interval="5" data-od-id="usage-auto-refresh-5s">5秒</button>
                 <button class="auto-refresh-option" type="button" role="menuitemradio" aria-checked="false" data-interval="10" data-od-id="usage-auto-refresh-10s">10秒</button>
                 <button class="auto-refresh-option" type="button" role="menuitemradio" aria-checked="false" data-interval="15" data-od-id="usage-auto-refresh-15s">15秒</button>
-                <button class="auto-refresh-option" type="button" role="menuitemradio" aria-checked="false" data-interval="30" data-od-id="usage-auto-refresh-30s">30秒</button>
+                <button class="auto-refresh-option active" type="button" role="menuitemradio" aria-checked="true" data-interval="30" data-od-id="usage-auto-refresh-30s">30秒</button>
               </div>
             </div>
           </div>
@@ -670,8 +670,8 @@
     const session = { apiBase: "", managementKey: "" };
     const state = { keys: [], resources: [], usage: [] };
     let toastTimer = null;
-    let autoRefreshInterval = 0;
-    let autoRefreshRemaining = 0;
+    let autoRefreshInterval = 30;
+    let autoRefreshRemaining = 30;
     let autoRefreshTimer = null;
     let usageCurrentPage = 1;
 
@@ -1117,7 +1117,13 @@
 
     initSession();
     initStyledSelects();
-    load({ silent: true }).catch(error => setNotice(error.message || "加载失败"));
+    if (secret()) {
+      load({ silent: true })
+        .catch(error => setNotice(error.message || "加载失败"))
+        .finally(() => startAutoRefreshCountdown());
+    } else {
+      setNotice("没有找到可复用的 CPA 管理登录。请从 CPA 管理后台的插件页面打开。");
+    }
   </script>
 </body>
 </html>
