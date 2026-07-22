@@ -1,0 +1,10 @@
+{
+  "AutoStart": false,
+  "CustomWslDistroDir": "D:\\Program Files\\Docker\\wsl",
+  "DisplayedOnboarding": true,
+  "EnableDockerAI": true,
+  "LastContainerdSnapshotterEnable": 1783491251,
+  "LicenseTermsVersion": 2,
+  "SettingsVersion": 45,
+  "UseContainerdSnapshotter": true
+}
