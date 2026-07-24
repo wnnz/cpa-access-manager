@@ -232,9 +232,13 @@ func (a *App) routeModel(raw []byte) ([]byte, error) {
 	if keyID == "" {
 		return OKEnvelope(ModelRouteResponse{Handled: false})
 	}
-	provider, err := store.ChooseProvider(context.Background(), keyID, req.RequestedModel, req.AvailableProviders)
+	sessionHash := routingSessionHash(req.Metadata, map[string][]string(req.Headers))
+	provider, err := store.ChooseProviderRouted(context.Background(), keyID, req.RequestedModel, req.AvailableProviders, sessionHash, time.Now())
 	if err != nil {
-		return OKEnvelope(ModelRouteResponse{Handled: false})
+		if errors.Is(err, access.ErrNoBindings) {
+			return OKEnvelope(ModelRouteResponse{Handled: false})
+		}
+		return ErrorEnvelope("no_allowed_provider", err.Error(), http.StatusForbidden), nil
 	}
 	return OKEnvelope(ModelRouteResponse{
 		Handled:     true,
@@ -256,6 +260,9 @@ func (a *App) pickScheduler(raw []byte) ([]byte, error) {
 	}
 	keyID := keyIDFromMetadata(req.Options.Metadata)
 	if keyID == "" {
+		keyID = keyIDFromHeaders(context.Background(), store, http.Header(req.Options.Headers))
+	}
+	if keyID == "" {
 		return OKEnvelope(SchedulerPickResponse{Handled: false})
 	}
 	candidates := make([]access.Candidate, 0, len(req.Candidates))
@@ -268,8 +275,12 @@ func (a *App) pickScheduler(raw []byte) ([]byte, error) {
 			Attributes: candidate.Attributes,
 		})
 	}
-	selected, err := store.PickCandidate(context.Background(), keyID, candidates)
+	sessionHash := routingSessionHash(req.Options.Metadata, req.Options.Headers)
+	selected, err := store.PickCandidateRouted(context.Background(), keyID, req.Model, req.Provider, sessionHash, candidates, time.Now())
 	if err != nil {
+		if errors.Is(err, access.ErrNoBindings) {
+			return OKEnvelope(SchedulerPickResponse{Handled: false})
+		}
 		return ErrorEnvelope("no_allowed_auth", err.Error(), http.StatusForbidden), nil
 	}
 	return OKEnvelope(SchedulerPickResponse{Handled: true, AuthID: selected.ID})

@@ -628,6 +628,10 @@
       min-width: 0;
     }
 
+    .field .styled-select-trigger {
+      width: 100%;
+    }
+
     .resource-picker {
       display: grid;
       gap: 8px;
@@ -925,6 +929,12 @@
             <input id="keyName" required="" placeholder="例如：prod-chat-api">
           </div>
 
+          <div class="field full" id="customKeyField">
+            <label for="customKeyInput">自定义 API Key（可选）</label>
+            <input id="customKeyInput" type="text" autocomplete="off" spellcheck="false" placeholder="留空则自动生成">
+            <span class="helper">创建后不能直接修改；如需更换，请轮换 Key。</span>
+          </div>
+
           <div class="field quota-row-field">
             <label for="aiType">AI 类型</label>
             <select id="aiType" required="">
@@ -954,8 +964,8 @@
           <div class="field full">
             <label>关联资源（可多选）</label>
             <div class="resource-picker" id="resourcePicker" data-od-id="resource-picker"></div>
-            <div id="resourceError" class="error" role="alert" aria-hidden="true">至少选择一个关联资源。</div>
-            <span class="helper" id="dependencyHint">当前选择 OpenAI，只展示 OpenAI 类型下的资源。</span>
+            <div id="resourceError" class="error" role="alert" aria-hidden="true">关联资源必须属于同一种 AI 类型。</div>
+            <span class="helper" id="dependencyHint">不选择资源时，由 CPA 自动选择可用资源。</span>
           </div>
         </form>
       </div>
@@ -1005,6 +1015,8 @@
       picker: $("resourcePicker"),
       hint: $("dependencyHint"),
       keyName: $("keyName"),
+      customKey: $("customKeyInput"),
+      customKeyField: $("customKeyField"),
       nameError: $("nameError"),
       quotaFiveHour: $("quotaFiveHourInput"),
       quotaWeek: $("quotaWeekInput"),
@@ -1248,7 +1260,7 @@
     function resourceChips(resources) {
       return resources.length
         ? resources.map(ref => `<span class="resource ${resourceClass(ref)}">${esc(ref.label)}</span>`).join("")
-        : `<span class="muted">未关联资源</span>`;
+        : `<span class="muted">CPA 自动调度</span>`;
     }
     function providers() {
       return uniq(state.resources.map(r => r.provider));
@@ -1353,29 +1365,16 @@
       const amount = Number(value) || 0;
       return `US$${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`;
     }
-    function usageDetail(entry) { return entry.detail || {}; }
-    function entryTokens(entry) {
-      const detail = usageDetail(entry);
-      return Number(detail.total_tokens || 0)
-        || Number(detail.input_tokens || 0) + Number(detail.output_tokens || 0) + Number(detail.reasoning_tokens || 0) + Number(detail.cached_tokens || 0);
-    }
-    function isToday(value) {
-      if (!value) return false;
-      const date = new Date(value);
-      if (Number.isNaN(date.getTime())) return false;
-      const now = new Date();
-      return date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth() && date.getDate() === now.getDate();
-    }
     function todayUsageByKey() {
       const out = new Map();
-      state.usage.forEach(entry => {
-        if (!isToday(entry.created_at)) return;
-        const id = entry.key_id || "";
-        const item = out.get(id) || { requests: 0, tokens: 0, costUsd: 0 };
-        item.requests += 1;
-        item.tokens += entryTokens(entry);
-        item.costUsd += Number(entry.usd || 0);
-        out.set(id, item);
+      state.usage.forEach(item => {
+        const id = item.key_id || "";
+        if (!id) return;
+        out.set(id, {
+          requests: Number(item.requests || 0),
+          tokens: Number(item.tokens || 0),
+          costUsd: Number(item.cost_usd || 0)
+        });
       });
       return out;
     }
@@ -1420,13 +1419,26 @@
         const resourcesPromise = refreshResources
           ? call("/inventory", { method: "POST", body: JSON.stringify({ refresh: true }) })
           : call("/inventory");
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const tomorrowStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+        const usageQuery = new URLSearchParams({
+          aggregate: "key",
+          since: todayStart.toISOString(),
+          before: tomorrowStart.toISOString()
+        });
         let [keys, resources, usage] = await Promise.all([
           call("/keys"),
           resourcesPromise,
-          call("/usage?limit=200")
+          call(`/usage?${usageQuery}`)
         ]);
         const hasProviderInstance = Array.isArray(resources) && resources.some(item => normalize(item?.type) === "provider_instance");
-        if (!Array.isArray(resources) || resources.length === 0 || !hasProviderInstance) {
+        const hasMisclassifiedAuthFile = Array.isArray(resources) && resources.some(item => {
+          if (normalize(item?.type) !== "provider_instance") return false;
+          const attributes = item?.snapshot?.attributes || {};
+          return normalize(attributes.auth_kind) === "oauth" || normalize(attributes.source_backend) === "file";
+        });
+        if (!Array.isArray(resources) || resources.length === 0 || !hasProviderInstance || hasMisclassifiedAuthFile) {
           try { resources = await call("/inventory", { method: "POST", body: JSON.stringify({ refresh: true }) }); } catch {}
         }
         state.keys = Array.isArray(keys) ? keys : [];
@@ -1575,13 +1587,17 @@
       els.picker.innerHTML = refs.length
         ? refs.map(ref => pickerOption(ref, selectedKeys)).join("")
         : `<div class="resource-option is-empty"><span><strong>暂无可选资源</strong><small>刷新后仍为空时，请先在 CPA 中配置对应认证文件或 AI 提供商。</small></span></div>`;
-      els.hint.textContent = provider ? `当前选择 ${provider}，只展示 ${provider} 类型下的资源。` : "请先选择 AI 类型。";
+      els.hint.textContent = provider
+        ? `当前选择 ${provider}，只展示 ${provider} 类型下的资源；不选择时由 CPA 自动调度。`
+        : "不选择资源时，由 CPA 自动调度。";
     }
     function openDrawer(key = null) {
       lastFocusedElement = document.activeElement;
       state.editingID = key?.id || "";
       $("drawerTitle").textContent = key ? "编辑 API Key" : "新建 API Key";
       els.keyName.value = key?.name || "";
+      els.customKey.value = "";
+      els.customKeyField.hidden = !!key;
       els.quotaFiveHour.value = quotaInputValue(key?.limits?.five_hour_limit_usd);
       els.quotaWeek.value = quotaInputValue(key?.limits?.weekly_limit_usd);
       els.quotaTotal.value = quotaInputValue(key?.limits?.total_limit_usd);
@@ -1614,7 +1630,7 @@
       const refs = selectedResourceRefs();
       const nameOK = !!name;
       const quotaOK = quotaValid(five, week, total);
-      const refsOK = refs.length > 0 && validateSingleProvider(refs);
+      const refsOK = refs.length === 0 || validateSingleProvider(refs);
       setError(els.nameError, !nameOK);
       setError(els.quotaError, !quotaOK);
       setError(els.resourceError, !refsOK);
@@ -1627,6 +1643,7 @@
         total_limit_usd: total,
         bindings: refs.map(ref => ({ target_type: ref.bindingType, target_id: ref.id }))
       };
+      if (!state.editingID && els.customKey.value.trim()) payload.api_key = els.customKey.value.trim();
       if (state.editingID) delete payload.enabled;
       try {
         if (state.editingID) {

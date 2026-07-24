@@ -197,6 +197,87 @@
       min-width: 122px;
     }
 
+    .request-resource-combobox {
+      position: relative;
+      width: 220px;
+      min-width: 180px;
+    }
+
+    .request-resource-filter {
+      width: 100%;
+      padding-right: 38px;
+    }
+
+    .request-resource-toggle {
+      position: absolute;
+      top: 0;
+      right: 0;
+      z-index: 2;
+      width: 36px;
+      height: 36px;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      border: 0;
+      color: #5f574d;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .request-resource-toggle svg {
+      width: 14px;
+      height: 14px;
+      transition: transform var(--motion-fast) var(--ease-out);
+    }
+
+    .request-resource-toggle[aria-expanded="true"] svg {
+      transform: rotate(180deg);
+    }
+
+    .request-resource-menu {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      left: 0;
+      z-index: 40;
+      max-height: 220px;
+      overflow-y: auto;
+      padding: 6px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fffefd;
+      box-shadow: 0 16px 34px rgba(60, 47, 34, 0.16);
+    }
+
+    .request-resource-menu[hidden] {
+      display: none;
+    }
+
+    .request-resource-option {
+      width: 100%;
+      min-height: 32px;
+      padding: 6px 9px;
+      border: 0;
+      border-radius: 7px;
+      color: var(--fg);
+      background: transparent;
+      text-align: left;
+      overflow-wrap: anywhere;
+      cursor: pointer;
+    }
+
+    .request-resource-option:hover,
+    .request-resource-option:focus-visible {
+      background: #f1ebe2;
+      outline: none;
+    }
+
+    .request-resource-empty {
+      padding: 8px 9px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
     .filter-bar {
       min-height: 78px;
       display: flex;
@@ -511,6 +592,10 @@
         width: 100%;
       }
 
+      .filter-group .request-resource-combobox {
+        width: 100%;
+      }
+
       .metric-grid { grid-template-columns: 1fr; }
       .metric-card { min-height: 88px; }
     }
@@ -536,12 +621,15 @@
             <option value="30d">近30天</option>
           </select>
         </div>
-        <div class="filter-group" data-od-id="granularity-filter-group">
-          <span class="filter-label">粒度:</span>
-          <select id="granularity" data-od-id="granularity-select" aria-label="统计粒度">
-            <option value="hour">按小时</option>
-            <option value="day">按天</option>
-          </select>
+        <div class="filter-group" data-od-id="request-resource-filter-group">
+          <label class="filter-label" for="requestResourceFilter">请求资源:</label>
+          <div class="request-resource-combobox" id="requestResourceCombobox" data-od-id="request-resource-combobox">
+            <input class="ui-input request-resource-filter" id="requestResourceFilter" type="text" placeholder="输入或选择资源" autocomplete="off" role="combobox" aria-autocomplete="list" aria-controls="requestResourceMenu" aria-expanded="false" data-od-id="request-resource-filter">
+            <button class="request-resource-toggle" id="requestResourceToggle" type="button" aria-label="展开请求资源" aria-controls="requestResourceMenu" aria-expanded="false">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="m4 6 4 4 4-4"></path></svg>
+            </button>
+            <div class="request-resource-menu" id="requestResourceMenu" role="listbox" hidden data-od-id="request-resource-options"></div>
+          </div>
         </div>
       </div>
       <div class="filter-actions" data-od-id="usage-filter-actions">
@@ -668,17 +756,22 @@
     const cpaSecureSalt = "cli-proxy-api-webui::secure-storage";
     const $ = id => document.getElementById(id);
     const session = { apiBase: "", managementKey: "" };
-    const state = { keys: [], resources: [], usage: [] };
+    const state = { keys: [], resources: [], usage: [], requestResources: [], summary: {} };
     let toastTimer = null;
     let autoRefreshInterval = 30;
     let autoRefreshRemaining = 30;
     let autoRefreshTimer = null;
     let usageCurrentPage = 1;
+    let requestResourceFilterTimer = null;
+    let selectedRequestResourceID = "";
 
     const els = {
       notice: $("notice"),
       timeRange: $("timeRange"),
-      granularity: $("granularity"),
+      requestResourceCombobox: $("requestResourceCombobox"),
+      requestResourceFilter: $("requestResourceFilter"),
+      requestResourceToggle: $("requestResourceToggle"),
+      requestResourceMenu: $("requestResourceMenu"),
       rangeSummary: $("rangeSummary"),
       refresh: $("refreshUsage"),
       refreshCountdown: $("refreshCountdown"),
@@ -902,12 +995,99 @@
       if (els.timeRange.value === "30d") return now - 30 * 24 * 60 * 60 * 1000;
       return now - 24 * 60 * 60 * 1000;
     }
+    function usageTimeRange() {
+      return {
+        since: new Date(dateCutoff()).toISOString(),
+        before: new Date().toISOString()
+      };
+    }
     function filteredUsage() {
       const cutoff = dateCutoff();
+      const requestResource = normalize(els.requestResourceFilter?.value);
+      const selectedResource = state.requestResources.find(item => item.id && item.id === selectedRequestResourceID);
       return state.usage.filter(entry => {
         const date = new Date(entry.created_at);
-        return !Number.isNaN(date.getTime()) && date.getTime() >= cutoff;
+        if (Number.isNaN(date.getTime()) || date.getTime() < cutoff) return false;
+        if (selectedResource) {
+          return entry.provider_instance_id === selectedResource.id ||
+            entry.auth_id === selectedResource.id ||
+            (selectedResource.authID && entry.auth_id === selectedResource.authID) ||
+            (selectedResource.authIndex && entry.auth_index === selectedResource.authIndex) ||
+            normalize(entry.request_resource).includes(normalize(selectedResource.label));
+        }
+        return !requestResource || normalize(entry.request_resource).includes(requestResource);
       });
+    }
+    function updateRequestResourceOptions(entries) {
+      const options = new Map();
+      state.resources.forEach(resource => {
+        const type = normalize(resource?.type);
+        if (type !== "auth_file" && type !== "provider_instance") return;
+        const id = String(resource?.id || "").trim();
+        const label = String(resource?.label || resource?.name || resource?.email || resource?.base_url || id).trim();
+        if (!id || !label) return;
+        options.set(`id:${id}`, {
+          id,
+          label,
+          authID: String(resource?.auth_id || "").trim(),
+          authIndex: String(resource?.auth_index || "").trim(),
+          provider: String(resource?.provider || "").trim()
+        });
+      });
+      entries.forEach(entry => {
+        const label = String(entry?.request_resource || "").trim();
+        if (label && !Array.from(options.values()).some(option => normalize(option.label) === normalize(label))) {
+          options.set(`history:${normalize(label)}`, { id: "", label, authID: "", authIndex: "", provider: "" });
+        }
+      });
+      state.requestResources = Array.from(options.values()).sort((a, b) => a.label.localeCompare(b.label, "zh-CN"));
+      renderRequestResourceOptions();
+    }
+    function matchingRequestResources() {
+      const query = normalize(els.requestResourceFilter?.value);
+      return state.requestResources.filter(option => !query || [option.label, option.id, option.authID, option.provider].some(value => normalize(value).includes(query)));
+    }
+    function renderRequestResourceOptions() {
+      if (!els.requestResourceMenu) return;
+      const values = matchingRequestResources();
+      els.requestResourceMenu.replaceChildren();
+      if (!values.length) {
+        const empty = document.createElement("div");
+        empty.className = "request-resource-empty";
+        empty.textContent = state.requestResources.length ? "没有匹配的资源" : "暂无请求资源";
+        els.requestResourceMenu.appendChild(empty);
+        return;
+      }
+      values.forEach(value => {
+        const option = document.createElement("button");
+        option.type = "button";
+        option.className = "request-resource-option";
+        option.setAttribute("role", "option");
+        option.textContent = value.label;
+        option.addEventListener("click", () => {
+          selectedRequestResourceID = value.id;
+          els.requestResourceFilter.value = value.label;
+          els.requestResourceFilter.focus({ preventScroll: true });
+          closeRequestResourceMenu();
+          resetUsagePage();
+          render();
+          load({ silent: true }).catch(error => toast(error.message || "加载失败"));
+        });
+        els.requestResourceMenu.appendChild(option);
+      });
+    }
+    function openRequestResourceMenu() {
+      if (!els.requestResourceMenu) return;
+      renderRequestResourceOptions();
+      els.requestResourceMenu.hidden = false;
+      els.requestResourceFilter.setAttribute("aria-expanded", "true");
+      els.requestResourceToggle.setAttribute("aria-expanded", "true");
+    }
+    function closeRequestResourceMenu() {
+      if (!els.requestResourceMenu) return;
+      els.requestResourceMenu.hidden = true;
+      els.requestResourceFilter.setAttribute("aria-expanded", "false");
+      els.requestResourceToggle.setAttribute("aria-expanded", "false");
     }
     function keyName(entry) {
       const key = state.keys.find(item => item.id === entry.key_id);
@@ -945,27 +1125,29 @@
     }
     function render() {
       const rows = filteredUsage();
-      const input = rows.reduce((sum, row) => sum + entryInput(row), 0);
-      const cacheRead = rows.reduce((sum, row) => sum + entryCacheRead(row), 0);
-      const output = rows.reduce((sum, row) => sum + entryOutput(row), 0);
-      const total = rows.reduce((sum, row) => sum + entryTotalTokens(row), 0);
-      const cost = rows.reduce((sum, row) => sum + Number(row.usd || 0), 0);
-      els.requests.textContent = formatNumber(rows.length);
+      const summary = state.summary || {};
+      const requests = Number(summary.requests || 0);
+      const input = Number(summary.input_tokens || 0);
+      const cacheRead = Number(summary.cache_read_tokens || 0);
+      const output = Number(summary.output_tokens || 0);
+      const total = Number(summary.total_tokens || 0);
+      const cost = Number(summary.cost_usd || 0);
+      els.requests.textContent = formatNumber(requests);
       if (els.requestsSub) els.requestsSub.textContent = "所选范围内";
       els.tokens.textContent = formatTokens(total);
       els.tokensSub.textContent = `输入(净值): ${formatTokens(input)} / 读取缓存: ${formatTokens(cacheRead)} / 输出: ${formatTokens(output)}`;
       els.cost.textContent = formatUsd(cost);
       if (els.costSub) els.costSub.innerHTML = `<strong>成本 ${formatUsd(cost)}</strong> · 标准 ${formatUsd(cost)}`;
-      els.firstLatency.textContent = formatLatency(averageLatency(rows, "first_token_latency_ms"));
-      els.latency.textContent = formatLatency(averageLatency(rows, "total_latency_ms"));
-      if (els.rangeSummary) els.rangeSummary.textContent = `${els.timeRange.options[els.timeRange.selectedIndex].textContent} · ${rows.length} 条请求`;
-      els.detailSummary.textContent = `${rows.length} 条请求 · 按时间倒序`;
+      els.firstLatency.textContent = formatLatency(summary.first_token_latency_ms);
+      els.latency.textContent = formatLatency(summary.total_latency_ms);
+      if (els.rangeSummary) els.rangeSummary.textContent = `${els.timeRange.options[els.timeRange.selectedIndex].textContent} · ${formatNumber(requests)} 条请求`;
+      els.detailSummary.textContent = `显示 ${formatNumber(rows.length)} / ${formatNumber(requests)} 条请求 · 按时间倒序`;
       const pageSize = Math.max(1, Number(els.usagePageSize?.value) || 20);
       const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
       if (usageCurrentPage > totalPages) usageCurrentPage = totalPages;
       const start = (usageCurrentPage - 1) * pageSize;
       const pageRows = rows.slice(start, start + pageSize);
-      if (els.usagePageSummary) els.usagePageSummary.textContent = `共${rows.length}条数据`;
+      if (els.usagePageSummary) els.usagePageSummary.textContent = `显示${formatNumber(rows.length)}条明细`;
       if (els.usagePageIndicator) els.usagePageIndicator.textContent = `第 ${usageCurrentPage} / ${totalPages} 页`;
       if (els.usagePrevPage) els.usagePrevPage.disabled = usageCurrentPage <= 1;
       if (els.usageNextPage) els.usageNextPage.disabled = usageCurrentPage >= totalPages;
@@ -996,14 +1178,28 @@
         return;
       }
       setNotice("");
-      const [keys, resources, usage] = await Promise.all([
+      const timeRange = usageTimeRange();
+      const usageQuery = new URLSearchParams({ limit: "500", ...timeRange });
+      const summaryQuery = new URLSearchParams({ aggregate: "summary", ...timeRange });
+      const requestResource = els.requestResourceFilter?.value.trim();
+      if (selectedRequestResourceID) {
+        usageQuery.set("resource_id", selectedRequestResourceID);
+        summaryQuery.set("resource_id", selectedRequestResourceID);
+      } else if (requestResource) {
+        usageQuery.set("request_resource", requestResource);
+        summaryQuery.set("request_resource", requestResource);
+      }
+      const [keys, resources, usage, summary] = await Promise.all([
         call("/keys"),
         call("/inventory"),
-        call("/usage?limit=500")
+        call(`/usage?${usageQuery}`),
+        call(`/usage?${summaryQuery}`)
       ]);
       state.keys = Array.isArray(keys) ? keys : [];
       state.resources = Array.isArray(resources) ? resources : [];
       state.usage = Array.isArray(usage) ? usage : [];
+      state.summary = summary && typeof summary === "object" ? summary : {};
+      updateRequestResourceOptions(state.usage);
       render();
       if (!silent) showToast("使用统计已刷新");
     }
@@ -1068,8 +1264,38 @@
     function resetUsagePage() {
       usageCurrentPage = 1;
     }
-    els.timeRange.addEventListener("change", () => { resetUsagePage(); render(); });
-    if (els.granularity) els.granularity.addEventListener("change", () => { resetUsagePage(); render(); });
+    els.timeRange.addEventListener("change", () => {
+      resetUsagePage();
+      load({ silent: true }).catch(error => showToast(error.message || "加载失败"));
+    });
+    if (els.requestResourceFilter) {
+      els.requestResourceFilter.addEventListener("input", () => {
+        selectedRequestResourceID = "";
+        openRequestResourceMenu();
+        resetUsagePage();
+        render();
+        if (requestResourceFilterTimer) window.clearTimeout(requestResourceFilterTimer);
+        requestResourceFilterTimer = window.setTimeout(() => load({ silent: true }), 300);
+      });
+      els.requestResourceFilter.addEventListener("focus", openRequestResourceMenu);
+      els.requestResourceFilter.addEventListener("keydown", event => {
+        if (event.key !== "ArrowDown") return;
+        event.preventDefault();
+        openRequestResourceMenu();
+        els.requestResourceMenu.querySelector(".request-resource-option")?.focus();
+      });
+    }
+    if (els.requestResourceToggle) {
+      els.requestResourceToggle.addEventListener("click", event => {
+        event.stopPropagation();
+        if (els.requestResourceMenu.hidden) {
+          els.requestResourceFilter.focus({ preventScroll: true });
+          openRequestResourceMenu();
+        } else {
+          closeRequestResourceMenu();
+        }
+      });
+    }
     els.refresh.addEventListener("click", async () => {
       await load();
       if (autoRefreshInterval) startAutoRefreshCountdown();
@@ -1106,6 +1332,7 @@
     }
     document.addEventListener("click", event => {
       if (!event.target.closest(".styled-select")) closeStyledSelects();
+      if (!event.target.closest(".request-resource-combobox")) closeRequestResourceMenu();
       if (els.autoRefreshMenu.hidden) return;
       if (event.target.closest(".auto-refresh-wrap")) return;
       closeAutoRefreshMenu();
@@ -1113,6 +1340,7 @@
     document.addEventListener("keydown", event => {
       if (event.key === "Escape") closeAutoRefreshMenu();
       if (event.key === "Escape") closeStyledSelects();
+      if (event.key === "Escape") closeRequestResourceMenu();
     });
 
     initSession();

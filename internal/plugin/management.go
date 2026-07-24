@@ -17,6 +17,7 @@ import (
 type keyRequest struct {
 	ID               string           `json:"id"`
 	Name             string           `json:"name"`
+	APIKey           string           `json:"api_key"`
 	Enabled          *bool            `json:"enabled"`
 	Bindings         []access.Binding `json:"bindings"`
 	Limits           *access.Limits   `json:"limits"`
@@ -190,7 +191,7 @@ func (a *App) handleKeys(store *access.Store, req ManagementRequest) ManagementR
 		if body.Enabled != nil {
 			enabled = *body.Enabled
 		}
-		key, plain, err := store.CreateKey(ctx, body.Name, enabled, bodyLimits(body), body.Bindings)
+		key, plain, err := store.CreateKeyWithPlain(ctx, body.Name, enabled, bodyLimits(body), body.Bindings, body.APIKey)
 		if err != nil {
 			return errorJSON(http.StatusBadRequest, err)
 		}
@@ -333,7 +334,7 @@ func (a *App) handleInventory(store *access.Store, req ManagementRequest) Manage
 			if err != nil {
 				return errorJSON(http.StatusBadRequest, err)
 			}
-			if err := store.UpsertAuthFiles(ctx, files); err != nil {
+			if err := store.SyncAuthFiles(ctx, files); err != nil {
 				return errorJSON(http.StatusBadRequest, err)
 			}
 			providers, err := a.hostProviderInventory(ctx, req)
@@ -403,8 +404,45 @@ func (a *App) handleUsageAPI(store *access.Store, req ManagementRequest) Managem
 	if strings.ToUpper(req.Method) != http.MethodGet {
 		return errorJSON(http.StatusMethodNotAllowed, errors.New("method not allowed"))
 	}
+	aggregate := strings.ToLower(strings.TrimSpace(req.Query.Get("aggregate")))
+	if aggregate == "key" || aggregate == "summary" {
+		since, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(req.Query.Get("since")))
+		if err != nil {
+			return errorJSON(http.StatusBadRequest, errors.New("valid since timestamp is required"))
+		}
+		before, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(req.Query.Get("before")))
+		if err != nil {
+			return errorJSON(http.StatusBadRequest, errors.New("valid before timestamp is required"))
+		}
+		if !before.After(since) {
+			return errorJSON(http.StatusBadRequest, errors.New("before must be after since"))
+		}
+		if aggregate == "key" {
+			totals, err := store.UsageTotalsByKey(context.Background(), since, before)
+			return jsonOrError(totals, err)
+		}
+		summary, err := store.UsageSummary(context.Background(), access.UsageFilter{
+			KeyID:           req.Query.Get("key_id"),
+			RequestResource: req.Query.Get("request_resource"),
+			ResourceID:      req.Query.Get("resource_id"),
+			Since:           since,
+			Before:          before,
+		})
+		return jsonOrError(summary, err)
+	}
 	limit, _ := strconv.Atoi(req.Query.Get("limit"))
-	entries, err := store.ListUsage(context.Background(), req.Query.Get("key_id"), limit)
+	filter := access.UsageFilter{
+		KeyID:           req.Query.Get("key_id"),
+		RequestResource: req.Query.Get("request_resource"),
+		ResourceID:      req.Query.Get("resource_id"),
+	}
+	if value := strings.TrimSpace(req.Query.Get("since")); value != "" {
+		filter.Since, _ = time.Parse(time.RFC3339Nano, value)
+	}
+	if value := strings.TrimSpace(req.Query.Get("before")); value != "" {
+		filter.Before, _ = time.Parse(time.RFC3339Nano, value)
+	}
+	entries, err := store.ListUsageFiltered(context.Background(), filter, limit)
 	return jsonOrError(entries, err)
 }
 

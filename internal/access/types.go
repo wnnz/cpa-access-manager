@@ -21,6 +21,7 @@ var (
 	ErrNoBindings       = errors.New("key has no bindings")
 	ErrNoAllowedTarget  = errors.New("no allowed target")
 	ErrMissingPriceRule = errors.New("missing price rule")
+	ErrDuplicateKey     = errors.New("api key already exists")
 )
 
 type Limits struct {
@@ -137,6 +138,32 @@ type UsageEntry struct {
 	USD                 float64     `json:"usd"`
 	Failed              bool        `json:"failed,omitempty"`
 	CreatedAt           time.Time   `json:"created_at"`
+}
+
+type UsageFilter struct {
+	KeyID           string
+	RequestResource string
+	ResourceID      string
+	Since           time.Time
+	Before          time.Time
+}
+
+type UsageAggregate struct {
+	KeyID    string  `json:"key_id"`
+	Requests int64   `json:"requests"`
+	Tokens   int64   `json:"tokens"`
+	CostUSD  float64 `json:"cost_usd"`
+}
+
+type UsageSummary struct {
+	Requests            int64   `json:"requests"`
+	InputTokens         int64   `json:"input_tokens"`
+	CacheReadTokens     int64   `json:"cache_read_tokens"`
+	OutputTokens        int64   `json:"output_tokens"`
+	TotalTokens         int64   `json:"total_tokens"`
+	CostUSD             float64 `json:"cost_usd"`
+	FirstTokenLatencyMS float64 `json:"first_token_latency_ms"`
+	TotalLatencyMS      float64 `json:"total_latency_ms"`
 }
 
 type UsageSums struct {

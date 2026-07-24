@@ -13,8 +13,8 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -23,6 +23,8 @@ import (
 type Store struct {
 	db            *sql.DB
 	allowUnpriced bool
+	routingMu     sync.Mutex
+	routingCursor map[string]uint64
 }
 
 func OpenStore(ctx context.Context, dbPath string, allowUnpriced bool) (*Store, error) {
@@ -33,11 +35,11 @@ func OpenStore(ctx context.Context, dbPath string, allowUnpriced bool) (*Store, 
 	if err := ensureDBDir(dbPath); err != nil {
 		return nil, err
 	}
-	db, err := sql.Open("sqlite", dbPath)
+	db, err := sql.Open("sqlite", sqliteDSN(dbPath))
 	if err != nil {
 		return nil, err
 	}
-	store := &Store{db: db, allowUnpriced: allowUnpriced}
+	store := &Store{db: db, allowUnpriced: allowUnpriced, routingCursor: make(map[string]uint64)}
 	if err := store.init(ctx); err != nil {
 		_ = db.Close()
 		return nil, err
@@ -67,6 +69,7 @@ func (s *Store) init(ctx context.Context) error {
 	stmts := []string{
 		`PRAGMA foreign_keys = ON`,
 		`PRAGMA busy_timeout = 5000`,
+		`PRAGMA journal_mode = WAL`,
 		`CREATE TABLE IF NOT EXISTS schema_migrations (
 			version INTEGER PRIMARY KEY,
 			applied_at TEXT NOT NULL
@@ -155,8 +158,20 @@ func (s *Store) init(ctx context.Context) error {
 			created_at TEXT NOT NULL,
 			FOREIGN KEY (key_id) REFERENCES keys(id) ON DELETE CASCADE
 		)`,
+		`CREATE TABLE IF NOT EXISTS routing_sessions (
+			key_id TEXT NOT NULL,
+			model TEXT NOT NULL DEFAULT '',
+			session_hash TEXT NOT NULL,
+			provider TEXT NOT NULL DEFAULT '',
+			auth_id TEXT NOT NULL DEFAULT '',
+			expires_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL,
+			PRIMARY KEY (key_id, model, session_hash),
+			FOREIGN KEY (key_id) REFERENCES keys(id) ON DELETE CASCADE
+		)`,
 		`CREATE INDEX IF NOT EXISTS idx_usage_key_created ON usage_ledger(key_id, created_at)`,
 		`CREATE INDEX IF NOT EXISTS idx_inventory_auth_id ON inventory_items(auth_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_routing_sessions_expires ON routing_sessions(expires_at)`,
 	}
 	for _, stmt := range stmts {
 		if _, err := s.db.ExecContext(ctx, stmt); err != nil {
@@ -169,8 +184,20 @@ func (s *Store) init(ctx context.Context) error {
 	if err := s.ensureUsageLedgerColumns(ctx); err != nil {
 		return err
 	}
-	_, err := s.db.ExecContext(ctx, `INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES(1, ?)`, timeNowString())
+	now := timeNowString()
+	if _, err := s.db.ExecContext(ctx, `INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES(1, ?)`, now); err != nil {
+		return err
+	}
+	_, err := s.db.ExecContext(ctx, `INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES(2, ?)`, now)
 	return err
+}
+
+func sqliteDSN(dbPath string) string {
+	separator := "?"
+	if strings.Contains(dbPath, "?") {
+		separator = "&"
+	}
+	return dbPath + separator + "_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)"
 }
 
 func (s *Store) ensureKeyColumns(ctx context.Context) error {
@@ -233,7 +260,23 @@ func (s *Store) tableColumns(ctx context.Context, table string) (map[string]bool
 }
 
 func (s *Store) CreateKey(ctx context.Context, name string, enabled bool, limits Limits, bindings []Binding) (Key, string, error) {
-	plain, hash, prefix, err := newPlainKey()
+	return s.CreateKeyWithPlain(ctx, name, enabled, limits, bindings, "")
+}
+
+func (s *Store) CreateKeyWithPlain(ctx context.Context, name string, enabled bool, limits Limits, bindings []Binding, requestedPlain string) (Key, string, error) {
+	plain := strings.TrimSpace(requestedPlain)
+	var hash, prefix string
+	var err error
+	if plain == "" {
+		plain, hash, prefix, err = newPlainKey()
+	} else {
+		hash = hashToken(plain)
+		prefix = maskToken(plain)
+		var exists int
+		if err = s.db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM keys WHERE key_hash = ?)`, hash).Scan(&exists); err == nil && exists != 0 {
+			return Key{}, "", ErrDuplicateKey
+		}
+	}
 	if err != nil {
 		return Key{}, "", err
 	}
@@ -249,6 +292,9 @@ func (s *Store) CreateKey(ctx context.Context, name string, enabled bool, limits
 	defer rollback(tx)
 	if _, err := tx.ExecContext(ctx, `INSERT INTO keys(id, name, key_hash, key_prefix, key_plain, enabled, five_hour_limit_usd, weekly_limit_usd, total_limit_usd, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		id, strings.TrimSpace(name), hash, prefix, plain, boolInt(enabled), nullFloat(limits.FiveHourUSD), nullFloat(limits.WeeklyUSD), nullFloat(limits.TotalUSD), now, now); err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "unique constraint failed: keys.key_hash") {
+			return Key{}, "", ErrDuplicateKey
+		}
 		return Key{}, "", err
 	}
 	if err := replaceBindings(ctx, tx, id, bindings); err != nil {
@@ -424,7 +470,7 @@ func (s *Store) ValidateBindingsAndPricing(ctx context.Context, key Key, request
 		return err
 	}
 	if !scope.HasBindings {
-		return ErrNoBindings
+		return nil
 	}
 	requestedModel = strings.TrimSpace(requestedModel)
 	if requestedModel == "" || !key.Limits.Enabled() || s.allowUnpriced {
@@ -545,67 +591,11 @@ func (s *Store) applyTarget(ctx context.Context, scope *Scope, targetType, targe
 }
 
 func (s *Store) ChooseProvider(ctx context.Context, keyID, requestedModel string, available []string) (string, error) {
-	key, err := s.GetKey(ctx, keyID)
-	if err != nil {
-		return "", err
-	}
-	scope, err := s.ResolveScope(ctx, keyID)
-	if err != nil {
-		return "", err
-	}
-	if !scope.HasBindings {
-		return "", ErrNoBindings
-	}
-	allowed := make([]string, 0, len(scope.Providers))
-	availableSet := stringSet(available)
-	for provider := range scope.Providers {
-		if provider == "" {
-			continue
-		}
-		if len(availableSet) > 0 {
-			if _, ok := availableSet[provider]; !ok {
-				continue
-			}
-		}
-		if key.Limits.Enabled() && !s.allowUnpriced && strings.TrimSpace(requestedModel) != "" {
-			if _, err := s.PriceRule(ctx, provider, requestedModel); err != nil {
-				continue
-			}
-		}
-		allowed = append(allowed, provider)
-	}
-	sort.Strings(allowed)
-	if len(allowed) == 0 {
-		return "", ErrNoAllowedTarget
-	}
-	return allowed[0], nil
+	return s.ChooseProviderRouted(ctx, keyID, requestedModel, available, "", time.Now())
 }
 
 func (s *Store) PickCandidate(ctx context.Context, keyID string, candidates []Candidate) (Candidate, error) {
-	scope, err := s.ResolveScope(ctx, keyID)
-	if err != nil {
-		return Candidate{}, err
-	}
-	if !scope.HasBindings {
-		return Candidate{}, ErrNoBindings
-	}
-	_ = s.UpsertProviderCandidates(ctx, candidates)
-	matched := make([]Candidate, 0)
-	for _, candidate := range candidates {
-		if scope.AllowsCandidate(candidate) {
-			matched = append(matched, candidate)
-		}
-	}
-	if len(matched) == 0 {
-		return Candidate{}, ErrNoAllowedTarget
-	}
-	sort.SliceStable(matched, func(i, j int) bool {
-		if matched[i].Priority != matched[j].Priority {
-			return matched[i].Priority > matched[j].Priority
-		}
-		return matched[i].ID < matched[j].ID
-	})
-	return matched[0], nil
+	return s.PickCandidateRouted(ctx, keyID, "", "", "", candidates, time.Now())
 }
 
 func (sc Scope) AllowsCandidate(candidate Candidate) bool {
@@ -625,7 +615,7 @@ func (sc Scope) AllowsCandidate(candidate Candidate) bool {
 }
 
 func (s *Store) UpsertAuthFiles(ctx context.Context, entries []HostAuthFileEntry) error {
-	authIDs := make([]string, 0, len(entries))
+	authAliases := make([]string, 0, len(entries)*4)
 	for _, entry := range entries {
 		id := strings.TrimSpace(entry.ID)
 		if id == "" {
@@ -656,9 +646,113 @@ func (s *Store) UpsertAuthFiles(ctx context.Context, entries []HostAuthFileEntry
 		if err := s.UpsertInventoryItem(ctx, item); err != nil {
 			return err
 		}
-		authIDs = append(authIDs, item.AuthID)
+		authAliases = append(authAliases, item.ID, item.AuthID, item.AuthIndex, item.Name)
+		if entry.Path != "" {
+			authAliases = append(authAliases, filepath.Base(entry.Path))
+		}
 	}
-	return s.deleteAuthFileProviderInstances(ctx, authIDs)
+	return s.deleteAuthFileProviderInstances(ctx, authAliases)
+}
+
+// SyncAuthFiles treats entries as the host's complete auth-file snapshot.
+// Besides upserting current files, it removes inventory rows for files that no
+// longer exist and cleans up provider-instance rows previously inferred from an
+// auth file's filename or auth index.
+func (s *Store) SyncAuthFiles(ctx context.Context, entries []HostAuthFileEntry) error {
+	aliases := make([]string, 0, len(entries)*4)
+	rows, err := s.db.QueryContext(ctx, `SELECT id, auth_id, auth_index, name FROM inventory_items WHERE type = ?`, InventoryAuthFile)
+	if err != nil {
+		return err
+	}
+	for rows.Next() {
+		var id, authID, authIndex, name string
+		if err := rows.Scan(&id, &authID, &authIndex, &name); err != nil {
+			_ = rows.Close()
+			return err
+		}
+		aliases = append(aliases, id, authID, authIndex, name)
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return err
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	if err := s.UpsertAuthFiles(ctx, entries); err != nil {
+		return err
+	}
+	if err := s.migrateAuthFileReferences(ctx, entries); err != nil {
+		return err
+	}
+
+	currentIDs := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		id := firstNonEmpty(entry.ID, entry.AuthIndex, entry.Name)
+		if id != "" {
+			currentIDs = append(currentIDs, id)
+		}
+		aliases = append(aliases, entry.ID, entry.AuthIndex, entry.Name)
+		if entry.Path != "" {
+			aliases = append(aliases, filepath.Base(entry.Path))
+		}
+	}
+	if err := s.deleteAuthFileProviderInstances(ctx, aliases); err != nil {
+		return err
+	}
+
+	currentIDs = uniqueNonEmpty(currentIDs)
+	if len(currentIDs) == 0 {
+		_, err = s.db.ExecContext(ctx, `DELETE FROM inventory_items WHERE type = ?`, InventoryAuthFile)
+		return err
+	}
+	placeholders := strings.TrimRight(strings.Repeat("?,", len(currentIDs)), ",")
+	args := make([]any, 0, len(currentIDs)+1)
+	args = append(args, InventoryAuthFile)
+	for _, id := range currentIDs {
+		args = append(args, id)
+	}
+	_, err = s.db.ExecContext(ctx, `DELETE FROM inventory_items WHERE type = ? AND id NOT IN (`+placeholders+`)`, args...)
+	return err
+}
+
+func (s *Store) migrateAuthFileReferences(ctx context.Context, entries []HostAuthFileEntry) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer rollback(tx)
+	for _, entry := range entries {
+		authID := strings.TrimSpace(firstNonEmpty(entry.ID, entry.AuthIndex, entry.Name))
+		provider := normalizeProvider(firstNonEmpty(entry.Provider, entry.Type))
+		if authID == "" || provider == "" {
+			continue
+		}
+		aliases := []string{entry.ID, entry.AuthIndex, entry.Name}
+		if entry.Path != "" {
+			aliases = append(aliases, filepath.Base(entry.Path))
+		}
+		for _, alias := range uniqueNonEmpty(aliases) {
+			providerID := ProviderInstanceID(provider, alias, "", "")
+			if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO key_bindings(key_id, target_type, target_id)
+				SELECT key_id, ?, ? FROM key_bindings WHERE target_type = ? AND target_id = ?`,
+				BindingAuthID, authID, BindingProviderInstance, providerID); err != nil {
+				return err
+			}
+			if _, err := tx.ExecContext(ctx, `DELETE FROM key_bindings WHERE target_type = ? AND target_id = ?`, BindingProviderInstance, providerID); err != nil {
+				return err
+			}
+			if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO group_members(group_id, member_type, member_id)
+				SELECT group_id, ?, ? FROM group_members WHERE member_type = ? AND member_id = ?`,
+				BindingAuthID, authID, BindingProviderInstance, providerID); err != nil {
+				return err
+			}
+			if _, err := tx.ExecContext(ctx, `DELETE FROM group_members WHERE member_type = ? AND member_id = ?`, BindingProviderInstance, providerID); err != nil {
+				return err
+			}
+		}
+	}
+	return tx.Commit()
 }
 
 func (s *Store) deleteAuthFileProviderInstances(ctx context.Context, authIDs []string) error {
@@ -689,27 +783,77 @@ func (s *Store) UpsertProviderCandidates(ctx context.Context, candidates []Candi
 		}
 		authIndex := firstAttr(candidate.Attributes, "auth_index", "index")
 		baseURL := firstAttr(candidate.Attributes, "base_url", "url", "endpoint")
+		if authFile, ok, err := s.authFileByCandidate(ctx, authID); err != nil {
+			return err
+		} else if ok {
+			if authFile.Snapshot == nil {
+				authFile.Snapshot = map[string]any{}
+			}
+			authFile.Provider = provider
+			authFile.Snapshot["id"] = candidate.ID
+			authFile.Snapshot["provider"] = candidate.Provider
+			authFile.Snapshot["priority"] = candidate.Priority
+			authFile.Snapshot["status"] = candidate.Status
+			authFile.Snapshot["attributes"] = candidate.Attributes
+			authFile.UpdatedAt = time.Now().UTC()
+			if err := s.UpsertInventoryItem(ctx, authFile); err != nil {
+				return err
+			}
+			continue
+		}
+		itemID := ProviderInstanceID(provider, authID, authIndex, baseURL)
+		snapshot := map[string]any{}
 		item := InventoryItem{
-			ID:        ProviderInstanceID(provider, authID, authIndex, baseURL),
+			ID:        itemID,
 			Type:      InventoryProviderInstance,
 			Provider:  provider,
 			AuthID:    authID,
 			AuthIndex: authIndex,
 			BaseURL:   baseURL,
-			Snapshot: map[string]any{
-				"id":         candidate.ID,
-				"provider":   candidate.Provider,
-				"priority":   candidate.Priority,
-				"status":     candidate.Status,
-				"attributes": candidate.Attributes,
-			},
+			Snapshot:  snapshot,
 			UpdatedAt: time.Now().UTC(),
 		}
+		if existing, ok := s.inventoryByType(ctx, InventoryProviderInstance, itemID); ok {
+			item.Name = existing.Name
+			item.Label = existing.Label
+			item.Email = existing.Email
+			if item.AuthIndex == "" {
+				item.AuthIndex = existing.AuthIndex
+			}
+			if item.BaseURL == "" {
+				item.BaseURL = existing.BaseURL
+			}
+			if existing.Snapshot != nil {
+				snapshot = existing.Snapshot
+				item.Snapshot = snapshot
+			}
+		}
+		snapshot["id"] = candidate.ID
+		snapshot["provider"] = candidate.Provider
+		snapshot["priority"] = candidate.Priority
+		snapshot["status"] = candidate.Status
+		snapshot["attributes"] = candidate.Attributes
 		if err := s.UpsertInventoryItem(ctx, item); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (s *Store) authFileByCandidate(ctx context.Context, authID string) (InventoryItem, bool, error) {
+	row := s.db.QueryRowContext(ctx, `SELECT id, type, provider, auth_id, auth_index, name, label, email, base_url, snapshot_json, updated_at
+		FROM inventory_items
+		WHERE type = ? AND (id = ? OR auth_id = ? OR (COALESCE(auth_index, '') <> '' AND auth_index = ?) OR (COALESCE(name, '') <> '' AND name = ?))
+		ORDER BY CASE WHEN id = ? THEN 0 WHEN auth_id = ? THEN 1 WHEN auth_index = ? THEN 2 ELSE 3 END
+		LIMIT 1`, InventoryAuthFile, authID, authID, authID, authID, authID, authID, authID)
+	item, err := scanInventory(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return InventoryItem{}, false, nil
+	}
+	if err != nil {
+		return InventoryItem{}, false, err
+	}
+	return item, true, nil
 }
 
 func (s *Store) UpsertInventoryItem(ctx context.Context, item InventoryItem) error {
@@ -899,14 +1043,17 @@ func (s *Store) RecordUsage(ctx context.Context, entry UsageEntry) (UsageEntry, 
 }
 
 func (s *Store) ListUsage(ctx context.Context, keyID string, limit int) ([]UsageEntry, error) {
+	return s.ListUsageFiltered(ctx, UsageFilter{KeyID: keyID}, limit)
+}
+
+func (s *Store) ListUsageFiltered(ctx context.Context, filter UsageFilter, limit int) ([]UsageEntry, error) {
 	if limit <= 0 || limit > 500 {
 		limit = 100
 	}
-	args := []any{}
 	query := `SELECT id, key_id, request_id, request_resource, auth_id, auth_index, provider, provider_instance_id, model, alias, input_tokens, output_tokens, reasoning_tokens, reasoning_effort, cached_tokens, cache_read_tokens, cache_creation_tokens, total_tokens, first_token_latency_ms, total_latency_ms, usd, failed, created_at FROM usage_ledger`
-	if strings.TrimSpace(keyID) != "" {
-		query += ` WHERE key_id = ?`
-		args = append(args, strings.TrimSpace(keyID))
+	conditions, args := usageFilterSQL(filter)
+	if len(conditions) > 0 {
+		query += ` WHERE ` + strings.Join(conditions, ` AND `)
 	}
 	query += ` ORDER BY id DESC LIMIT ?`
 	args = append(args, limit)
@@ -928,6 +1075,97 @@ func (s *Store) ListUsage(ctx context.Context, keyID string, limit int) ([]Usage
 		out = append(out, e)
 	}
 	return out, rows.Err()
+}
+
+func usageFilterSQL(filter UsageFilter) ([]string, []any) {
+	conditions := make([]string, 0, 5)
+	args := make([]any, 0, 8)
+	if keyID := strings.TrimSpace(filter.KeyID); keyID != "" {
+		conditions = append(conditions, `key_id = ?`)
+		args = append(args, keyID)
+	}
+	if requestResource := strings.TrimSpace(filter.RequestResource); requestResource != "" {
+		conditions = append(conditions, `LOWER(request_resource) LIKE ? ESCAPE '\'`)
+		args = append(args, "%"+escapeLikePattern(strings.ToLower(requestResource))+"%")
+	}
+	if resourceID := strings.TrimSpace(filter.ResourceID); resourceID != "" {
+		conditions = append(conditions, `(auth_id = ? OR auth_index = ? OR provider_instance_id = ? OR EXISTS (
+			SELECT 1 FROM inventory_items AS resource
+			WHERE resource.id = ? AND (
+				usage_ledger.provider_instance_id = resource.id OR
+				usage_ledger.auth_id = resource.id OR
+				(COALESCE(resource.auth_id, '') <> '' AND usage_ledger.auth_id = resource.auth_id) OR
+				(COALESCE(resource.auth_index, '') <> '' AND usage_ledger.auth_index = resource.auth_index)
+			)
+		))`)
+		args = append(args, resourceID, resourceID, resourceID, resourceID)
+	}
+	if !filter.Since.IsZero() {
+		conditions = append(conditions, `created_at >= ?`)
+		args = append(args, formatTime(filter.Since.UTC()))
+	}
+	if !filter.Before.IsZero() {
+		conditions = append(conditions, `created_at < ?`)
+		args = append(args, formatTime(filter.Before.UTC()))
+	}
+	return conditions, args
+}
+
+func (s *Store) UsageSummary(ctx context.Context, filter UsageFilter) (UsageSummary, error) {
+	conditions, args := usageFilterSQL(filter)
+	query := `SELECT
+		COUNT(*),
+		COALESCE(SUM(MAX(input_tokens - CASE WHEN cache_read_tokens > 0 THEN cache_read_tokens ELSE cached_tokens END, 0)), 0),
+		COALESCE(SUM(CASE WHEN cache_read_tokens > 0 THEN cache_read_tokens ELSE cached_tokens END), 0),
+		COALESCE(SUM(output_tokens), 0),
+		COALESCE(SUM(CASE WHEN total_tokens > 0 THEN total_tokens ELSE MAX(input_tokens - CASE WHEN cache_read_tokens > 0 THEN cache_read_tokens ELSE cached_tokens END, 0) + CASE WHEN cache_read_tokens > 0 THEN cache_read_tokens ELSE cached_tokens END + output_tokens END), 0),
+		COALESCE(SUM(usd), 0),
+		COALESCE(AVG(NULLIF(first_token_latency_ms, 0)), 0),
+		COALESCE(AVG(NULLIF(total_latency_ms, 0)), 0)
+		FROM usage_ledger`
+	if len(conditions) > 0 {
+		query += ` WHERE ` + strings.Join(conditions, ` AND `)
+	}
+	var out UsageSummary
+	err := s.db.QueryRowContext(ctx, query, args...).Scan(
+		&out.Requests,
+		&out.InputTokens,
+		&out.CacheReadTokens,
+		&out.OutputTokens,
+		&out.TotalTokens,
+		&out.CostUSD,
+		&out.FirstTokenLatencyMS,
+		&out.TotalLatencyMS,
+	)
+	return out, err
+}
+
+func (s *Store) UsageTotalsByKey(ctx context.Context, since, before time.Time) ([]UsageAggregate, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT key_id,
+		COUNT(*),
+		COALESCE(SUM(CASE WHEN total_tokens > 0 THEN total_tokens ELSE input_tokens + output_tokens + reasoning_tokens + cached_tokens END), 0),
+		COALESCE(SUM(usd), 0)
+		FROM usage_ledger
+		WHERE created_at >= ? AND created_at < ?
+		GROUP BY key_id
+		ORDER BY key_id`, formatTime(since.UTC()), formatTime(before.UTC()))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]UsageAggregate, 0)
+	for rows.Next() {
+		var item UsageAggregate
+		if err := rows.Scan(&item.KeyID, &item.Requests, &item.Tokens, &item.CostUSD); err != nil {
+			return nil, err
+		}
+		out = append(out, item)
+	}
+	return out, rows.Err()
+}
+
+func escapeLikePattern(value string) string {
+	return strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(value)
 }
 
 func normalizeReasoningEffort(value string) string {

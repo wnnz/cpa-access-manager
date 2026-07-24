@@ -126,6 +126,85 @@ func TestAppFrontendAuthReturnsKeyMetadata(t *testing.T) {
 	}
 }
 
+func TestAppUnboundKeyDelegatesRoutingToCPA(t *testing.T) {
+	app, store := newTestApp(t)
+	key, plain, err := store.CreateKey(context.Background(), "cpa-default", true, access.Limits{}, nil)
+	if err != nil {
+		t.Fatalf("CreateKey() error = %v", err)
+	}
+
+	authRaw, _ := json.Marshal(FrontendAuthRequest{
+		Method:  http.MethodPost,
+		Path:    "/v1/responses",
+		Headers: http.Header{"Authorization": []string{"Bearer " + plain}},
+		Body:    []byte(`{"model":"gpt-test"}`),
+	})
+	authResponse, err := app.HandleMethod(MethodFrontendAuthAuthenticate, authRaw)
+	if err != nil {
+		t.Fatalf("HandleMethod(authenticate) error = %v", err)
+	}
+	_, authenticated := decodeEnvelopeResult[FrontendAuthResponse](t, authResponse)
+	if !authenticated.Authenticated {
+		t.Fatal("unbound key was not authenticated")
+	}
+
+	routeRaw, _ := json.Marshal(ModelRouteRequest{
+		RequestedModel:     "gpt-test",
+		Metadata:           map[string]any{"key_id": key.ID},
+		AvailableProviders: []string{"codex", "openai"},
+	})
+	routeResponse, err := app.HandleMethod(MethodModelRoute, routeRaw)
+	if err != nil {
+		t.Fatalf("HandleMethod(model.route) error = %v", err)
+	}
+	routeEnv, route := decodeEnvelopeResult[ModelRouteResponse](t, routeResponse)
+	if !routeEnv.OK || route.Handled {
+		t.Fatalf("model route = env:%#v response:%#v, want unhandled", routeEnv, route)
+	}
+
+	schedulerRaw, _ := json.Marshal(SchedulerPickRequest{
+		Provider: "codex",
+		Model:    "gpt-test",
+		Options:  SchedulerPickOptions{Metadata: map[string]any{"key_id": key.ID}},
+		Candidates: []SchedulerAuthCandidate{
+			{ID: "auth-a", Provider: "codex", Priority: 100},
+			{ID: "auth-b", Provider: "codex", Priority: 50},
+		},
+	})
+	schedulerResponse, err := app.HandleMethod(MethodSchedulerPick, schedulerRaw)
+	if err != nil {
+		t.Fatalf("HandleMethod(scheduler.pick) error = %v", err)
+	}
+	schedulerEnv, scheduler := decodeEnvelopeResult[SchedulerPickResponse](t, schedulerResponse)
+	if !schedulerEnv.OK || scheduler.Handled {
+		t.Fatalf("scheduler pick = env:%#v response:%#v, want unhandled", schedulerEnv, scheduler)
+	}
+}
+
+func TestAppManagementCreatesCustomUnboundKey(t *testing.T) {
+	app, _ := newTestApp(t)
+	body := []byte(`{"name":"custom","api_key":"custom-management-key","bindings":[]}`)
+	raw, _ := json.Marshal(ManagementRequest{Method: http.MethodPost, Path: routeKeys, Body: body})
+	response, err := app.HandleMethod(MethodManagementHandle, raw)
+	if err != nil {
+		t.Fatalf("HandleMethod(management.handle) error = %v", err)
+	}
+	_, management := decodeEnvelopeResult[ManagementResponse](t, response)
+	if management.StatusCode != http.StatusCreated {
+		t.Fatalf("management status = %d, body=%s", management.StatusCode, string(management.Body))
+	}
+	var result struct {
+		PlainKey string     `json:"plain_key"`
+		Key      access.Key `json:"key"`
+	}
+	if err := json.Unmarshal(management.Body, &result); err != nil {
+		t.Fatalf("Unmarshal management body error = %v", err)
+	}
+	if result.PlainKey != "custom-management-key" || len(result.Key.Bindings) != 0 {
+		t.Fatalf("created custom key = %#v, plain=%q", result.Key, result.PlainKey)
+	}
+}
+
 func TestAppSchedulerPickRejectsUnauthorizedWithoutFallback(t *testing.T) {
 	app, store := newTestApp(t)
 	key, _, err := store.CreateKey(context.Background(), "team", true, access.Limits{}, []access.Binding{{TargetType: access.BindingAuthID, TargetID: "auth-a"}})
@@ -411,7 +490,7 @@ func TestAppManagementResourcePages(t *testing.T) {
 		want string
 	}{
 		{"/v0/resource/plugins/cpa-toolkit/01-apikey.html", "API Key 管理"},
-		{"/v0/resource/plugins/cpa-toolkit/02-usage-statistics.html", "使用统计"},
+		{"/v0/resource/plugins/cpa-toolkit/02-usage-statistics.html", "requestResourceCombobox"},
 		{"/v0/resource/plugins/cpa-toolkit/03-settings.html", "模型计费设置"},
 		{"/v0/resource/plugins/cpa-toolkit/apikey.html", "API Key 管理"},
 		{"/v0/resource/plugins/cpa-toolkit/settings.html", "模型计费设置"},
@@ -489,6 +568,122 @@ func TestAppUsageHandleRecordsRequestMetrics(t *testing.T) {
 	}
 	if got.Detail.ReasoningEffort != "high" {
 		t.Fatalf("usage reasoning effort = %q, want high", got.Detail.ReasoningEffort)
+	}
+}
+
+func TestAppManagementUsageFiltersRequestResource(t *testing.T) {
+	app, store := newTestApp(t)
+	key, _, err := store.CreateKey(context.Background(), "team", true, access.Limits{}, []access.Binding{{TargetType: access.BindingAuthID, TargetID: "auth-a"}})
+	if err != nil {
+		t.Fatalf("CreateKey() error = %v", err)
+	}
+	for _, resource := range []string{"OpenAI Primary", "Claude Backup"} {
+		if _, err := store.RecordUsage(context.Background(), access.UsageEntry{
+			KeyID:           key.ID,
+			RequestResource: resource,
+			Provider:        "codex",
+			Model:           "unpriced-model",
+		}); err != nil {
+			t.Fatalf("RecordUsage(%q) error = %v", resource, err)
+		}
+	}
+
+	rawReq, _ := json.Marshal(ManagementRequest{
+		Method: http.MethodGet,
+		Path:   "/v0/management/plugins/cpa-toolkit/usage",
+		Query:  url.Values{"request_resource": []string{"primary"}},
+	})
+	rawResp, err := app.HandleMethod(MethodManagementHandle, rawReq)
+	if err != nil {
+		t.Fatalf("HandleMethod(management.handle) error = %v", err)
+	}
+	env, resp := decodeEnvelopeResult[ManagementResponse](t, rawResp)
+	if !env.OK || resp.StatusCode != http.StatusOK {
+		t.Fatalf("management response = %#v %#v, want 200", env, resp)
+	}
+	var entries []access.UsageEntry
+	if err := json.Unmarshal(resp.Body, &entries); err != nil {
+		t.Fatalf("Unmarshal usage response error = %v", err)
+	}
+	if len(entries) != 1 || entries[0].RequestResource != "OpenAI Primary" {
+		t.Fatalf("filtered usage = %#v, want OpenAI Primary", entries)
+	}
+}
+
+func TestAppManagementUsageAggregatesAllRowsByKey(t *testing.T) {
+	app, store := newTestApp(t)
+	key, _, err := store.CreateKey(context.Background(), "team", true, access.Limits{}, []access.Binding{{TargetType: access.BindingAuthID, TargetID: "auth-a"}})
+	if err != nil {
+		t.Fatalf("CreateKey() error = %v", err)
+	}
+	start := time.Date(2026, 7, 22, 0, 0, 0, 0, time.UTC)
+	for i := 0; i < 205; i++ {
+		if _, err := store.RecordUsage(context.Background(), access.UsageEntry{
+			KeyID: key.ID, Provider: "codex", Model: "unpriced-model", CreatedAt: start.Add(time.Hour),
+			Detail: access.UsageDetail{TotalTokens: 10},
+		}); err != nil {
+			t.Fatalf("RecordUsage(%d) error = %v", i, err)
+		}
+	}
+	rawReq, _ := json.Marshal(ManagementRequest{
+		Method: http.MethodGet,
+		Path:   "/v0/management/plugins/cpa-toolkit/usage",
+		Query: url.Values{
+			"aggregate": {"key"},
+			"since":     {start.Format(time.RFC3339Nano)},
+			"before":    {start.Add(24 * time.Hour).Format(time.RFC3339Nano)},
+		},
+	})
+	rawResp, err := app.HandleMethod(MethodManagementHandle, rawReq)
+	if err != nil {
+		t.Fatalf("HandleMethod(management.handle) error = %v", err)
+	}
+	_, resp := decodeEnvelopeResult[ManagementResponse](t, rawResp)
+	var totals []access.UsageAggregate
+	if err := json.Unmarshal(resp.Body, &totals); err != nil {
+		t.Fatalf("Unmarshal usage totals error = %v", err)
+	}
+	if resp.StatusCode != http.StatusOK || len(totals) != 1 || totals[0].Requests != 205 || totals[0].Tokens != 2050 {
+		t.Fatalf("usage totals response = status:%d totals:%#v", resp.StatusCode, totals)
+	}
+}
+
+func TestAppManagementUsageSummaryUsesFilters(t *testing.T) {
+	app, store := newTestApp(t)
+	key, _, err := store.CreateKey(context.Background(), "team", true, access.Limits{}, []access.Binding{{TargetType: access.BindingAuthID, TargetID: "auth-a"}})
+	if err != nil {
+		t.Fatalf("CreateKey() error = %v", err)
+	}
+	start := time.Date(2026, 7, 22, 0, 0, 0, 0, time.UTC)
+	for _, resource := range []string{"OpenAI Primary", "Claude Backup"} {
+		if _, err := store.RecordUsage(context.Background(), access.UsageEntry{
+			KeyID: key.ID, RequestResource: resource, Provider: "codex", Model: "unpriced-model", CreatedAt: start.Add(time.Hour),
+			Detail: access.UsageDetail{InputTokens: 10, OutputTokens: 5},
+		}); err != nil {
+			t.Fatalf("RecordUsage(%q) error = %v", resource, err)
+		}
+	}
+	rawReq, _ := json.Marshal(ManagementRequest{
+		Method: http.MethodGet,
+		Path:   "/v0/management/plugins/cpa-toolkit/usage",
+		Query: url.Values{
+			"aggregate":        {"summary"},
+			"request_resource": {"primary"},
+			"since":            {start.Format(time.RFC3339Nano)},
+			"before":           {start.Add(24 * time.Hour).Format(time.RFC3339Nano)},
+		},
+	})
+	rawResp, err := app.HandleMethod(MethodManagementHandle, rawReq)
+	if err != nil {
+		t.Fatalf("HandleMethod(management.handle) error = %v", err)
+	}
+	_, resp := decodeEnvelopeResult[ManagementResponse](t, rawResp)
+	var summary access.UsageSummary
+	if err := json.Unmarshal(resp.Body, &summary); err != nil {
+		t.Fatalf("Unmarshal usage summary error = %v", err)
+	}
+	if resp.StatusCode != http.StatusOK || summary.Requests != 1 || summary.InputTokens != 10 || summary.OutputTokens != 5 || summary.TotalTokens != 15 {
+		t.Fatalf("usage summary response = status:%d summary:%#v", resp.StatusCode, summary)
 	}
 }
 

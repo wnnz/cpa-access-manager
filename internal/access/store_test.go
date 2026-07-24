@@ -39,6 +39,61 @@ func TestKeyPlainTextPersistsAndRotates(t *testing.T) {
 	}
 }
 
+func TestCreateKeyWithPlainAuthenticatesWithoutBindingsAndRejectsDuplicate(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+	const custom = "customer-defined-api-key"
+
+	key, plain, err := store.CreateKeyWithPlain(ctx, "custom", true, Limits{}, nil, custom)
+	if err != nil {
+		t.Fatalf("CreateKeyWithPlain() error = %v", err)
+	}
+	if plain != custom || key.PlainKey != custom {
+		t.Fatalf("created key plain values = %q, %q, want %q", plain, key.PlainKey, custom)
+	}
+	if len(key.Bindings) != 0 {
+		t.Fatalf("created key bindings = %#v, want none", key.Bindings)
+	}
+	if authenticated, err := store.Authenticate(ctx, custom, "gpt-test", time.Now()); err != nil {
+		t.Fatalf("Authenticate() unbound custom key error = %v", err)
+	} else if authenticated.ID != key.ID {
+		t.Fatalf("Authenticate() key ID = %q, want %q", authenticated.ID, key.ID)
+	}
+
+	if _, _, err := store.CreateKeyWithPlain(ctx, "duplicate", true, Limits{}, nil, custom); !errors.Is(err, ErrDuplicateKey) {
+		t.Fatalf("CreateKeyWithPlain() duplicate error = %v, want ErrDuplicateKey", err)
+	}
+}
+
+func TestOpenStoreConfiguresEverySQLiteConnection(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+	connections := make([]*sql.Conn, 0, 2)
+	for i := 0; i < 2; i++ {
+		conn, err := store.db.Conn(ctx)
+		if err != nil {
+			t.Fatalf("Conn(%d) error = %v", i, err)
+		}
+		connections = append(connections, conn)
+		defer conn.Close()
+
+		var foreignKeys, busyTimeout int
+		var journalMode string
+		if err := conn.QueryRowContext(ctx, `PRAGMA foreign_keys`).Scan(&foreignKeys); err != nil {
+			t.Fatalf("foreign_keys connection %d: %v", i, err)
+		}
+		if err := conn.QueryRowContext(ctx, `PRAGMA busy_timeout`).Scan(&busyTimeout); err != nil {
+			t.Fatalf("busy_timeout connection %d: %v", i, err)
+		}
+		if err := conn.QueryRowContext(ctx, `PRAGMA journal_mode`).Scan(&journalMode); err != nil {
+			t.Fatalf("journal_mode connection %d: %v", i, err)
+		}
+		if foreignKeys != 1 || busyTimeout != 5000 || journalMode != "wal" {
+			t.Fatalf("connection %d pragmas = foreign_keys:%d busy_timeout:%d journal_mode:%q", i, foreignKeys, busyTimeout, journalMode)
+		}
+	}
+}
+
 func TestOpenStoreAddsPlainKeyColumnToExistingDatabase(t *testing.T) {
 	ctx := context.Background()
 	path := filepath.Join(t.TempDir(), "legacy.db")
@@ -207,6 +262,161 @@ func TestUpsertAuthFilesDoesNotExposeAuthFileAsProviderInstance(t *testing.T) {
 	}
 }
 
+func TestUpsertProviderCandidatesUpdatesAuthFileWithoutDuplicatingIt(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+	if err := store.UpsertAuthFiles(ctx, []HostAuthFileEntry{{
+		ID:       "auth-file-a",
+		Provider: "codex",
+		Name:     "auth-file-a.json",
+		Label:    "account@example.com",
+		Email:    "account@example.com",
+	}}); err != nil {
+		t.Fatalf("UpsertAuthFiles() error = %v", err)
+	}
+	if err := store.UpsertProviderCandidates(ctx, []Candidate{
+		{ID: "auth-file-a", Provider: "codex", Priority: 7, Status: "ready", Attributes: map[string]string{"source": "file"}},
+		{ID: "configured-provider", Provider: "codex", Priority: 7, Status: "ready", Attributes: map[string]string{"base_url": "https://example.com"}},
+	}); err != nil {
+		t.Fatalf("UpsertProviderCandidates() error = %v", err)
+	}
+
+	items, err := store.ListInventory(ctx)
+	if err != nil {
+		t.Fatalf("ListInventory() error = %v", err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("inventory count = %d, want 2: %#v", len(items), items)
+	}
+	var authFile InventoryItem
+	var providerInstances int
+	for _, item := range items {
+		switch item.Type {
+		case InventoryAuthFile:
+			authFile = item
+		case InventoryProviderInstance:
+			providerInstances++
+			if item.AuthID == "auth-file-a" {
+				t.Fatalf("auth file was duplicated as provider_instance: %#v", item)
+			}
+		}
+	}
+	if providerInstances != 1 {
+		t.Fatalf("provider_instance count = %d, want 1", providerInstances)
+	}
+	if authFile.Name != "auth-file-a.json" || authFile.Label != "account@example.com" {
+		t.Fatalf("auth file display fields were not preserved: %#v", authFile)
+	}
+	if got := authFile.Snapshot["priority"]; got != float64(7) && got != 7 {
+		t.Fatalf("auth file priority snapshot = %#v, want 7", got)
+	}
+	if got := authFile.Snapshot["status"]; got != "ready" {
+		t.Fatalf("auth file status snapshot = %#v, want ready", got)
+	}
+}
+
+func TestSyncAuthFilesRemovesDeletedFilesAndFilenameProviderDuplicates(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+	currentProviderID := ProviderInstanceID("codex", "codex-current.json", "", "")
+	key, _, err := store.CreateKey(ctx, "oauth", true, Limits{}, []Binding{{TargetType: BindingProviderInstance, TargetID: currentProviderID}})
+	if err != nil {
+		t.Fatalf("CreateKey() error = %v", err)
+	}
+	if err := store.UpsertAuthFiles(ctx, []HostAuthFileEntry{
+		{ID: "expired@example.com", Provider: "codex", Name: "codex-expired.json", Email: "expired@example.com"},
+	}); err != nil {
+		t.Fatalf("UpsertAuthFiles(expired) error = %v", err)
+	}
+	if err := store.UpsertInventoryItem(ctx, InventoryItem{
+		ID: ProviderInstanceID("codex", "codex-expired.json", "", ""), Type: InventoryProviderInstance,
+		Provider: "codex", AuthID: "codex-expired.json", Name: "codex-expired.json",
+	}); err != nil {
+		t.Fatalf("UpsertInventoryItem(expired duplicate) error = %v", err)
+	}
+	if err := store.UpsertInventoryItem(ctx, InventoryItem{
+		ID: currentProviderID, Type: InventoryProviderInstance, Provider: "codex",
+		AuthID: "codex-current.json", Name: "codex-current.json",
+	}); err != nil {
+		t.Fatalf("UpsertInventoryItem(current duplicate) error = %v", err)
+	}
+
+	if err := store.SyncAuthFiles(ctx, []HostAuthFileEntry{
+		{ID: "current@example.com", Provider: "codex", Name: "codex-current.json", Email: "current@example.com"},
+	}); err != nil {
+		t.Fatalf("SyncAuthFiles() error = %v", err)
+	}
+	if err := store.UpsertProviderCandidates(ctx, []Candidate{{ID: "codex-current.json", Provider: "codex", Status: "ready"}}); err != nil {
+		t.Fatalf("UpsertProviderCandidates(current filename) error = %v", err)
+	}
+
+	items, err := store.ListInventory(ctx)
+	if err != nil {
+		t.Fatalf("ListInventory() error = %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("inventory = %#v, want only current auth file", items)
+	}
+	if items[0].Type != InventoryAuthFile || items[0].ID != "current@example.com" || items[0].Name != "codex-current.json" {
+		t.Fatalf("current inventory item = %#v", items[0])
+	}
+	if got := items[0].Snapshot["status"]; got != "ready" {
+		t.Fatalf("current auth-file status = %#v, want ready", got)
+	}
+	bindings, err := store.KeyBindings(ctx, key.ID)
+	if err != nil {
+		t.Fatalf("KeyBindings() error = %v", err)
+	}
+	if len(bindings) != 1 || bindings[0].TargetType != BindingAuthID || bindings[0].TargetID != "current@example.com" {
+		t.Fatalf("migrated bindings = %#v", bindings)
+	}
+}
+
+func TestUpsertProviderCandidatesPreservesConfiguredProviderDisplayFields(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+	authID := "codex:apikey:f019226f368a"
+	itemID := ProviderInstanceID("codex", authID, "", "https://sub2api.515290.xyz")
+	if err := store.UpsertInventoryItem(ctx, InventoryItem{
+		ID:       itemID,
+		Type:     InventoryProviderInstance,
+		Provider: "codex",
+		AuthID:   authID,
+		Name:     "Codex API Key - https://sub2api.515290.xyz",
+		Label:    "Codex API Key - https://sub2api.515290.xyz",
+		BaseURL:  "https://sub2api.515290.xyz",
+		Snapshot: map[string]any{"source": "config:codex-api-key"},
+	}); err != nil {
+		t.Fatalf("UpsertInventoryItem() error = %v", err)
+	}
+
+	if err := store.UpsertProviderCandidates(ctx, []Candidate{{
+		ID:       authID,
+		Provider: "codex",
+		Priority: 3,
+		Status:   "active",
+		Attributes: map[string]string{
+			"base_url": "https://sub2api.515290.xyz",
+		},
+	}}); err != nil {
+		t.Fatalf("UpsertProviderCandidates() error = %v", err)
+	}
+
+	item, ok := store.inventoryByType(ctx, InventoryProviderInstance, itemID)
+	if !ok {
+		t.Fatal("configured provider inventory item is missing")
+	}
+	if item.Name != "Codex API Key - https://sub2api.515290.xyz" || item.Label != item.Name {
+		t.Fatalf("display fields = name:%q label:%q", item.Name, item.Label)
+	}
+	if item.BaseURL != "https://sub2api.515290.xyz" {
+		t.Fatalf("BaseURL = %q", item.BaseURL)
+	}
+	if item.Snapshot["source"] != "config:codex-api-key" || item.Snapshot["status"] != "active" {
+		t.Fatalf("Snapshot = %#v", item.Snapshot)
+	}
+}
+
 func TestPickCandidate_ProviderInstanceDoesNotAllowSameProviderOtherAuth(t *testing.T) {
 	store := newTestStore(t)
 	instanceID := ProviderInstanceID("codex", "auth-a", "", "")
@@ -326,6 +536,177 @@ func TestRecordUsageStoresRequestMetadata(t *testing.T) {
 	}
 	if got.Detail.ReasoningEffort != "high" {
 		t.Fatalf("reasoning effort = %q, want high", got.Detail.ReasoningEffort)
+	}
+}
+
+func TestListUsageFilteredByRequestResource(t *testing.T) {
+	store := newTestStore(t)
+	key, _, err := store.CreateKey(context.Background(), "team", true, Limits{}, []Binding{{TargetType: BindingAuthID, TargetID: "auth-a"}})
+	if err != nil {
+		t.Fatalf("CreateKey() error = %v", err)
+	}
+	for _, resource := range []string{"OpenAI Primary", "Claude_100%"} {
+		if _, err := store.RecordUsage(context.Background(), UsageEntry{
+			KeyID:           key.ID,
+			RequestResource: resource,
+			Provider:        "codex",
+			Model:           "unpriced-model",
+		}); err != nil {
+			t.Fatalf("RecordUsage(%q) error = %v", resource, err)
+		}
+	}
+
+	entries, err := store.ListUsageFiltered(context.Background(), UsageFilter{
+		KeyID:           key.ID,
+		RequestResource: "openai pri",
+	}, 10)
+	if err != nil {
+		t.Fatalf("ListUsageFiltered() error = %v", err)
+	}
+	if len(entries) != 1 || entries[0].RequestResource != "OpenAI Primary" {
+		t.Fatalf("ListUsageFiltered() = %#v, want OpenAI Primary", entries)
+	}
+
+	entries, err = store.ListUsageFiltered(context.Background(), UsageFilter{RequestResource: "_100%"}, 10)
+	if err != nil {
+		t.Fatalf("ListUsageFiltered(literal wildcard) error = %v", err)
+	}
+	if len(entries) != 1 || entries[0].RequestResource != "Claude_100%" {
+		t.Fatalf("ListUsageFiltered(literal wildcard) = %#v, want Claude_100%%", entries)
+	}
+}
+
+func TestUsageTotalsByKeyAggregatesAllRowsInTimeRange(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+	key, _, err := store.CreateKey(ctx, "team", true, Limits{}, []Binding{{TargetType: BindingAuthID, TargetID: "auth-a"}})
+	if err != nil {
+		t.Fatalf("CreateKey() error = %v", err)
+	}
+	if err := store.UpsertPriceRules(ctx, []PriceRule{{Provider: "codex", Model: "gpt-test", InputUSDPerMillion: 1}}); err != nil {
+		t.Fatalf("UpsertPriceRules() error = %v", err)
+	}
+	localZone := time.FixedZone("UTC+8", 8*60*60)
+	start := time.Date(2026, 7, 22, 0, 0, 0, 0, localZone)
+	for i := 0; i < 205; i++ {
+		if _, err := store.RecordUsage(ctx, UsageEntry{
+			KeyID: key.ID, Provider: "codex", Model: "gpt-test", CreatedAt: start.Add(time.Hour),
+			Detail: UsageDetail{InputTokens: 10, TotalTokens: 10},
+		}); err != nil {
+			t.Fatalf("RecordUsage(%d) error = %v", i, err)
+		}
+	}
+	if _, err := store.RecordUsage(ctx, UsageEntry{
+		KeyID: key.ID, Provider: "codex", Model: "gpt-test", CreatedAt: start.Add(-time.Second),
+		Detail: UsageDetail{InputTokens: 999, TotalTokens: 999},
+	}); err != nil {
+		t.Fatalf("RecordUsage(outside range) error = %v", err)
+	}
+
+	totals, err := store.UsageTotalsByKey(ctx, start, start.Add(24*time.Hour))
+	if err != nil {
+		t.Fatalf("UsageTotalsByKey() error = %v", err)
+	}
+	if len(totals) != 1 || totals[0].KeyID != key.ID || totals[0].Requests != 205 || totals[0].Tokens != 2050 {
+		t.Fatalf("UsageTotalsByKey() = %#v", totals)
+	}
+	if diff := totals[0].CostUSD - 0.00205; diff < -1e-12 || diff > 1e-12 {
+		t.Fatalf("CostUSD = %.12f, want 0.00205", totals[0].CostUSD)
+	}
+}
+
+func TestUsageSummaryAggregatesBeyondDetailLimitWithFilters(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+	key, _, err := store.CreateKey(ctx, "team", true, Limits{}, []Binding{{TargetType: BindingAuthID, TargetID: "auth-a"}})
+	if err != nil {
+		t.Fatalf("CreateKey() error = %v", err)
+	}
+	if err := store.UpsertPriceRules(ctx, []PriceRule{{
+		Provider: "codex", Model: "gpt-test", InputUSDPerMillion: 1, OutputUSDPerMillion: 2, CacheReadUSDPerMillion: 0.5,
+	}}); err != nil {
+		t.Fatalf("UpsertPriceRules() error = %v", err)
+	}
+	start := time.Date(2026, 7, 22, 0, 0, 0, 0, time.UTC)
+	for i := 0; i < 505; i++ {
+		if _, err := store.RecordUsage(ctx, UsageEntry{
+			KeyID: key.ID, RequestResource: "OpenAI Primary", Provider: "codex", Model: "gpt-test", CreatedAt: start.Add(time.Hour),
+			FirstTokenLatencyMS: 100, TotalLatencyMS: 400,
+			Detail: UsageDetail{InputTokens: 100, CacheReadTokens: 20, OutputTokens: 30},
+		}); err != nil {
+			t.Fatalf("RecordUsage(%d) error = %v", i, err)
+		}
+	}
+	for _, entry := range []UsageEntry{
+		{KeyID: key.ID, RequestResource: "Claude Backup", Provider: "codex", Model: "gpt-test", CreatedAt: start.Add(time.Hour), Detail: UsageDetail{InputTokens: 999}},
+		{KeyID: key.ID, RequestResource: "OpenAI Primary", Provider: "codex", Model: "gpt-test", CreatedAt: start.Add(-time.Second), Detail: UsageDetail{InputTokens: 999}},
+	} {
+		if _, err := store.RecordUsage(ctx, entry); err != nil {
+			t.Fatalf("RecordUsage(excluded) error = %v", err)
+		}
+	}
+
+	filter := UsageFilter{
+		RequestResource: "openai pri",
+		Since:           start,
+		Before:          start.Add(24 * time.Hour),
+	}
+	summary, err := store.UsageSummary(ctx, filter)
+	if err != nil {
+		t.Fatalf("UsageSummary() error = %v", err)
+	}
+	if summary.Requests != 505 || summary.InputTokens != 40_400 || summary.CacheReadTokens != 10_100 || summary.OutputTokens != 15_150 || summary.TotalTokens != 65_650 {
+		t.Fatalf("UsageSummary() = %#v", summary)
+	}
+	if diff := summary.CostUSD - 0.07575; diff < -1e-12 || diff > 1e-12 {
+		t.Fatalf("CostUSD = %.12f, want 0.07575", summary.CostUSD)
+	}
+	if summary.FirstTokenLatencyMS != 100 || summary.TotalLatencyMS != 400 {
+		t.Fatalf("latencies = %.2f/%.2f, want 100/400", summary.FirstTokenLatencyMS, summary.TotalLatencyMS)
+	}
+	details, err := store.ListUsageFiltered(ctx, filter, 500)
+	if err != nil {
+		t.Fatalf("ListUsageFiltered() error = %v", err)
+	}
+	if len(details) != 500 {
+		t.Fatalf("detail rows = %d, want capped 500", len(details))
+	}
+}
+
+func TestListUsageFilteredByInventoryResourceID(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+	key, _, err := store.CreateKey(ctx, "team", true, Limits{}, []Binding{{TargetType: BindingAuthID, TargetID: "auth-a"}})
+	if err != nil {
+		t.Fatalf("CreateKey() error = %v", err)
+	}
+	providerID := ProviderInstanceID("codex", "provider-auth", "", "https://example.com")
+	if err := store.UpsertInventoryItem(ctx, InventoryItem{
+		ID:       providerID,
+		Type:     InventoryProviderInstance,
+		Provider: "codex",
+		AuthID:   "provider-auth",
+		Name:     "Codex API Key - https://example.com",
+	}); err != nil {
+		t.Fatalf("UpsertInventoryItem() error = %v", err)
+	}
+	for _, authID := range []string{"provider-auth", "other-auth"} {
+		if _, err := store.RecordUsage(ctx, UsageEntry{
+			KeyID:    key.ID,
+			AuthID:   authID,
+			Provider: "codex",
+			Model:    "unpriced-model",
+		}); err != nil {
+			t.Fatalf("RecordUsage(%q) error = %v", authID, err)
+		}
+	}
+
+	entries, err := store.ListUsageFiltered(ctx, UsageFilter{ResourceID: providerID}, 10)
+	if err != nil {
+		t.Fatalf("ListUsageFiltered() error = %v", err)
+	}
+	if len(entries) != 1 || entries[0].AuthID != "provider-auth" {
+		t.Fatalf("ListUsageFiltered() = %#v, want provider-auth", entries)
 	}
 }
 
